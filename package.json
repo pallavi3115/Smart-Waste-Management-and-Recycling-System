@@ -1,0 +1,24 @@
+{
+  "name": "smart-waste-management-and-recycling-system",
+  "version": "1.0.0",
+  "description": "\"IoT sensor simulator for smart bins\"",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "simulate": "node sensors/binSimulator.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pallavi3115/Smart-Waste-Management-and-Recycling-System.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pallavi3115/Smart-Waste-Management-and-Recycling-System/issues"
+  },
+  "homepage": "https://github.com/pallavi3115/Smart-Waste-Management-and-Recycling-System#readme",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3"
+  }
+}
