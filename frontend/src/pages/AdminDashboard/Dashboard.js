@@ -10,7 +10,6 @@ import {
 import {
   TrendingUp,
   Warning,
-  CheckCircle,
   Recycle
 } from '@mui/icons-material';
 import { binService } from '../../services/binService';
