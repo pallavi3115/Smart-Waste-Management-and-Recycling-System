@@ -1,27 +1,23 @@
 import api from './api';
 
 export const binService = {
-  // Get all bins
-  getAllBins: async () => {
+  async getAllBins() {
     const response = await api.get('/bins/all');
     return response.data;
   },
 
-  // Get bin status
-  getBinStatus: async (binId) => {
-    const response = await api.get(`/bins/status/${binId}`);
+  async getBinById(id) {
+    const response = await api.get(`/bins/status/${id}`);
     return response.data;
   },
 
-  // Register new bin
-  registerBin: async (binData) => {
+  async updateBinStatus(binId, data) {
+    const response = await api.post('/bins/update', { binId, ...data });
+    return response.data;
+  },
+
+  async registerBin(binData) {
     const response = await api.post('/bins/register', binData);
-    return response.data;
-  },
-
-  // Update bin status
-  updateBinStatus: async (updateData) => {
-    const response = await api.post('/bins/update', updateData);
     return response.data;
   }
 };

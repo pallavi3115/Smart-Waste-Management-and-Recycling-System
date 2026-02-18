@@ -3,11 +3,14 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// Components
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
+import AdminDashboard from './components/admin/AdminDashboard';
+import CitizenPortal from './components/citizen/CitizenPortal';
 import Header from './components/common/Header';
-import Login from './pages/Auth/Login';
-import Register from './pages/Auth/Register';
-import AdminDashboard from './pages/AdminDashboard/Dashboard';
-import CitizenPortal from './pages/CitizenPortal/CitizenPortal';
+import LoadingSpinner from './components/common/LoadingSpinner';
 
 const theme = createTheme({
   palette: {
@@ -20,17 +23,21 @@ const theme = createTheme({
   },
 });
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) return <div>Loading...</div>;
-  
-  if (!user) return <Navigate to="/login" />;
-  
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+const PrivateRoute = ({ children, allowedRoles }) => {
+  const { user, loading, isAuthenticated } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/" />;
   }
-  
+
   return children;
 };
 
@@ -40,30 +47,31 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <Router>
-          <div className="App">
-            <Header />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route 
-                path="/admin" 
-                element={
-                  <ProtectedRoute allowedRoles={['Admin']}>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/citizen" 
-                element={
-                  <ProtectedRoute allowedRoles={['Citizen']}>
-                    <CitizenPortal />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route path="/" element={<Navigate to="/citizen" />} />
-            </Routes>
-          </div>
+          <Header />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            <Route
+              path="/admin/dashboard"
+              element={
+                <PrivateRoute allowedRoles={['Admin']}>
+                  <AdminDashboard />
+                </PrivateRoute>
+              }
+            />
+            
+            <Route
+              path="/citizen/dashboard"
+              element={
+                <PrivateRoute allowedRoles={['Citizen']}>
+                  <CitizenPortal />
+                </PrivateRoute>
+              }
+            />
+            
+            <Route path="/" element={<Navigate to="/login" />} />
+          </Routes>
         </Router>
       </AuthProvider>
     </ThemeProvider>

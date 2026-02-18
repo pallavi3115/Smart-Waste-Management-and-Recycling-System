@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api from '../services/api';
+import { authService } from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -16,59 +16,30 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      setUser(JSON.parse(userData));
-      api.defaults.headers.Authorization = `Bearer ${token}`;
-    }
+    const user = authService.getCurrentUser();
+    setUser(user);
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      const { data } = response.data;
-      
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
-      api.defaults.headers.Authorization = `Bearer ${data.token}`;
-      
-      return { success: true, data: data.user };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Login failed' 
-      };
+    const response = await authService.login(email, password);
+    if (response.success) {
+      setUser(response.data.user);
     }
+    return response;
   };
 
   const register = async (userData) => {
-    try {
-      const response = await api.post('/auth/register', userData);
-      const { data } = response.data;
-      
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
-      api.defaults.headers.Authorization = `Bearer ${data.token}`;
-      
-      return { success: true, data: data.user };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Registration failed' 
-      };
+    const response = await authService.register(userData);
+    if (response.success) {
+      setUser(response.data.user);
     }
+    return response;
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    authService.logout();
     setUser(null);
-    delete api.defaults.headers.Authorization;
   };
 
   const value = {
@@ -76,7 +47,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    loading
+    loading,
+    isAuthenticated: authService.isAuthenticated()
   };
 
   return (
