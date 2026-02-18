@@ -28,7 +28,7 @@ import { binService } from '../../services/binService';
 import { recyclingService } from '../../services/recyclingService';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
-import ErrorAlert from '../common/ErrorAlert'; // This path is correct
+import ErrorAlert from '../ErrorAlert'; // This path is correct
 
 // ... rest of the code remains the same
 
