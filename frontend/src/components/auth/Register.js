@@ -57,11 +57,8 @@ const Register = () => {
       const response = await register(userData);
       
       if (response.success) {
-        if (response.data.user.role === 'Admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/citizen/dashboard');
-        }
+        // Navigate to the role-specific dashboard
+        navigate(response.redirect);
       } else {
         setError(response.message || 'Registration failed');
       }

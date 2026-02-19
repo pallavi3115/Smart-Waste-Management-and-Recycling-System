@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/Auth');
 
 const router = express.Router();
 
@@ -19,6 +19,6 @@ router.get('/dashboard', (req, res) => {
       monthlyTrend: '+12%'
     }
   });
-});
+}); 
 
 module.exports = router;

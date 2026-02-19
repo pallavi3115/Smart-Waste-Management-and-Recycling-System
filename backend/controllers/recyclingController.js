@@ -1,66 +1,50 @@
-// Mock recycling centers
-let recyclingCenters = [
-  {
-    id: '1',
-    name: 'Delhi Central Recycling Center',
-    location: { latitude: 28.6129, longitude: 77.2295 },
-    capacity: 1000,
-    current_load: 650,
-    materials_supported: ['Plastic', 'Glass', 'Paper', 'Metal'],
-    contact_info: '+91 9876543210',
-    operating_hours: '8:00 AM - 6:00 PM'
-  },
-  {
-    id: '2',
-    name: 'South Delhi Recycling Hub',
-    location: { latitude: 28.5245, longitude: 77.2155 },
-    capacity: 800,
-    current_load: 320,
-    materials_supported: ['Plastic', 'Paper'],
-    contact_info: '+91 9876543211',
-    operating_hours: '9:00 AM - 7:00 PM'
-  },
-  {
-    id: '3',
-    name: 'North Delhi Green Center',
-    location: { latitude: 28.7041, longitude: 77.1025 },
-    capacity: 1200,
-    current_load: 890,
-    materials_supported: ['Glass', 'Metal', 'E-Waste'],
-    contact_info: '+91 9876543212',
-    operating_hours: '8:30 AM - 5:30 PM'
-  }
-];
-
-// Mock recycling logs
-let recyclingLogs = [
-  {
-    id: '1',
-    bin_id: '1',
-    center_id: '1',
-    material_type: 'Plastic',
-    quantity: 25,
-    timestamp: new Date('2024-01-15')
-  },
-  {
-    id: '2',
-    bin_id: '2',
-    center_id: '2',
-    material_type: 'Paper',
-    quantity: 18,
-    timestamp: new Date('2024-01-15')
-  }
-];
+const RecyclingCenter = require('../models/RecyclingCenter');
+const RecyclingLog = require('../models/RecyclingLog');
+const Reward = require('../models/Reward');
+const { getIO } = require('../config/socket');
 
 // @desc    Get all recycling centers
 // @route   GET /api/recycling/centers
 // @access  Public
-exports.getRecyclingCenters = async (req, res) => {
+exports.getCenters = async (req, res) => {
   try {
-    res.status(200).json({
+    const { material, nearby, lat, lng, radius = 10000 } = req.query;
+
+    let query = { isActive: true, verified: true };
+
+    // Filter by accepted materials
+    if (material) {
+      query['materials.type'] = material;
+      query['materials.isAccepted'] = true;
+    }
+
+    // Nearby centers
+    if (nearby === 'true' && lat && lng) {
+      query['location.coordinates'] = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: parseInt(radius)
+        }
+      };
+    }
+
+    const centers = await RecyclingCenter.find(query)
+      .select('-reviews -certifications');
+
+    // Add open status
+    const centersWithStatus = centers.map(center => ({
+      ...center.toObject(),
+      isOpenNow: center.isOpenNow(),
+      fillPercentage: center.getFillPercentage()
+    }));
+
+    res.json({
       success: true,
-      count: recyclingCenters.length,
-      data: recyclingCenters
+      count: centersWithStatus.length,
+      data: centersWithStatus
     });
   } catch (error) {
     res.status(400).json({
@@ -70,13 +54,14 @@ exports.getRecyclingCenters = async (req, res) => {
   }
 };
 
-// @desc    Get recycling center by ID
+// @desc    Get center by ID
 // @route   GET /api/recycling/centers/:id
 // @access  Public
-exports.getRecyclingCenter = async (req, res) => {
+exports.getCenterById = async (req, res) => {
   try {
-    const center = recyclingCenters.find(c => c.id === req.params.id);
-    
+    const center = await RecyclingCenter.findById(req.params.id)
+      .populate('reviews.user', 'name profilePicture');
+
     if (!center) {
       return res.status(404).json({
         success: false,
@@ -84,9 +69,13 @@ exports.getRecyclingCenter = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: center
+      data: {
+        ...center.toObject(),
+        isOpenNow: center.isOpenNow(),
+        fillPercentage: center.getFillPercentage()
+      }
     });
   } catch (error) {
     res.status(400).json({
@@ -96,29 +85,130 @@ exports.getRecyclingCenter = async (req, res) => {
   }
 };
 
-// @desc    Add new recycling center
-// @route   POST /api/recycling/centers
-// @access  Admin
-exports.addRecyclingCenter = async (req, res) => {
+// @desc    Log recycling activity
+// @route   POST /api/recycling/log
+// @access  Private
+exports.logRecycling = async (req, res) => {
   try {
-    const { name, location, capacity, materials_supported, contact_info, operating_hours } = req.body;
-    
-    const center = {
-      id: (recyclingCenters.length + 1).toString(),
-      name,
-      location,
-      capacity,
-      current_load: 0,
-      materials_supported,
-      contact_info,
-      operating_hours
-    };
+    const {
+      centerId,
+      materialType,
+      quantity,
+      method,
+      images,
+      location
+    } = req.body;
 
-    recyclingCenters.push(center);
+    const center = await RecyclingCenter.findById(centerId);
+    if (!center) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recycling center not found'
+      });
+    }
+
+    // Check if center accepts this material
+    const material = center.materials.find(m => m.type === materialType);
+    if (!material || !material.isAccepted) {
+      return res.status(400).json({
+        success: false,
+        message: 'This center does not accept this material'
+      });
+    }
+
+    // Check capacity
+    if (center.capacity.current + quantity > center.capacity.total) {
+      return res.status(400).json({
+        success: false,
+        message: 'Center is at full capacity'
+      });
+    }
+
+    // Create recycling log
+    const log = await RecyclingLog.create({
+      user: req.user.id,
+      center: centerId,
+      materialType,
+      quantity,
+      method,
+      images,
+      location,
+      estimatedValue: quantity * (material.pricePerKg || 0)
+    });
+
+    // Update center capacity
+    center.capacity.current += quantity;
+    material.currentLoad = (material.currentLoad || 0) + quantity;
+    await center.save();
+
+    // Award points to user
+    const reward = await Reward.findOne({ user: req.user.id });
+    if (reward) {
+      await reward.addPoints(log.pointsEarned, `Recycled ${quantity}kg of ${materialType}`);
+    }
+
+    // Notify via socket
+    const io = getIO();
+    io.emit('recyclingActivity', {
+      userId: req.user.id,
+      materialType,
+      quantity,
+      pointsEarned: log.pointsEarned,
+      environmentalImpact: {
+        co2Saved: log.co2Saved,
+        waterSaved: log.waterSaved,
+        energySaved: log.energySaved
+      }
+    });
 
     res.status(201).json({
       success: true,
-      data: center
+      data: {
+        log,
+        pointsEarned: log.pointsEarned,
+        environmentalImpact: {
+          co2Saved: log.co2Saved,
+          waterSaved: log.waterSaved,
+          energySaved: log.energySaved
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get user's recycling history
+// @route   GET /api/recycling/my-logs
+// @access  Private
+exports.getMyLogs = async (req, res) => {
+  try {
+    const logs = await RecyclingLog.find({ user: req.user.id })
+      .populate('center', 'name location')
+      .sort('-createdAt');
+
+    // Calculate totals
+    const totals = await RecyclingLog.aggregate([
+      { $match: { user: req.user._id } },
+      {
+        $group: {
+          _id: '$materialType',
+          totalQuantity: { $sum: '$quantity' },
+          totalPoints: { $sum: '$pointsEarned' },
+          totalCO2: { $sum: '$co2Saved' }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        logs,
+        summary: totals
+      }
     });
   } catch (error) {
     res.status(400).json({
@@ -133,28 +223,144 @@ exports.addRecyclingCenter = async (req, res) => {
 // @access  Public
 exports.getRecyclingStats = async (req, res) => {
   try {
-    const totalCapacity = recyclingCenters.reduce((sum, center) => sum + center.capacity, 0);
-    const totalLoad = recyclingCenters.reduce((sum, center) => sum + center.current_load, 0);
-    const utilizationRate = ((totalLoad / totalCapacity) * 100).toFixed(1);
+    // Overall stats
+    const overall = await RecyclingLog.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalRecycled: { $sum: '$quantity' },
+          totalPoints: { $sum: '$pointsEarned' },
+          totalCO2: { $sum: '$co2Saved' },
+          totalWater: { $sum: '$waterSaved' },
+          totalEnergy: { $sum: '$energySaved' },
+          uniqueUsers: { $addToSet: '$user' }
+        }
+      },
+      {
+        $project: {
+          totalRecycled: 1,
+          totalPoints: 1,
+          totalCO2: 1,
+          totalWater: 1,
+          totalEnergy: 1,
+          uniqueUsers: { $size: '$uniqueUsers' }
+        }
+      }
+    ]);
 
-    // Material distribution
-    const materialStats = {
-      Plastic: 45,
-      Paper: 30,
-      Glass: 15,
-      Metal: 8,
-      'E-Waste': 2
-    };
+    // By material type
+    const byMaterial = await RecyclingLog.aggregate([
+      {
+        $group: {
+          _id: '$materialType',
+          quantity: { $sum: '$quantity' },
+          points: { $sum: '$pointsEarned' }
+        }
+      },
+      { $sort: { quantity: -1 } }
+    ]);
 
-    res.status(200).json({
+    // Daily trend (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const dailyTrend = await RecyclingLog.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+          },
+          quantity: { $sum: '$quantity' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Center stats
+    const centerStats = await RecyclingCenter.aggregate([
+      {
+        $project: {
+          name: 1,
+          fillPercentage: {
+            $multiply: [{ $divide: ['$capacity.current', '$capacity.total'] }, 100]
+          },
+          totalMaterials: { $size: '$materials' }
+        }
+      },
+      { $sort: { fillPercentage: -1 } },
+      { $limit: 10 }
+    ]);
+
+    res.json({
       success: true,
       data: {
-        totalCenters: recyclingCenters.length,
-        totalCapacity,
-        totalLoad,
-        utilizationRate: utilizationRate + '%',
-        materialStats
+        overall: overall[0] || {},
+        byMaterial,
+        dailyTrend,
+        topCenters: centerStats
       }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Add review to center
+// @route   POST /api/recycling/centers/:id/review
+// @access  Private
+exports.addReview = async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+
+    const center = await RecyclingCenter.findById(req.params.id);
+    
+    if (!center) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recycling center not found'
+      });
+    }
+
+    // Check if user already reviewed
+    const existingReview = center.reviews.find(
+      review => review.user.toString() === req.user.id
+    );
+
+    if (existingReview) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already reviewed this center'
+      });
+    }
+
+    // Add review
+    center.reviews.push({
+      user: req.user.id,
+      rating,
+      comment
+    });
+
+    center.updateRating();
+    await center.save();
+
+    // Award points for review
+    const reward = await Reward.findOne({ user: req.user.id });
+    if (reward) {
+      await reward.addPoints(5, 'Recycling center review');
+    }
+
+    res.json({
+      success: true,
+      data: center.reviews[center.reviews.length - 1]
     });
   } catch (error) {
     res.status(400).json({
