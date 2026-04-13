@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Add useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -25,7 +25,9 @@ import {
   Grow,
   IconButton,
   Tooltip,
-  Badge
+  Badge,
+  Skeleton,
+  alpha
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -44,15 +46,33 @@ import {
   Download as DownloadIcon,
   Verified as VerifiedIcon,
   Star as StarIcon,
-  Timeline as TimelineIcon
+  Timeline as TimelineIcon,
+  TrendingUp as TrendingUpIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Schedule as ScheduleIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/userService';
-import { formatDistance } from 'date-fns';
+import { formatDistance, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import CountUp from 'react-countup';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 
 // Animation variants
 const containerVariants = {
@@ -77,24 +97,38 @@ const itemVariants = {
   }
 };
 
+// Mock chart data
+const activityData = [
+  { month: 'Jan', reports: 5, recycling: 25 },
+  { month: 'Feb', reports: 8, recycling: 35 },
+  { month: 'Mar', reports: 12, recycling: 45 },
+  { month: 'Apr', reports: 10, recycling: 40 },
+  { month: 'May', reports: 15, recycling: 55 },
+  { month: 'Jun', reports: 18, recycling: 65 },
+];
+
+const materialData = [
+  { name: 'Plastic', value: 45, color: '#4F46E5' },
+  { name: 'Paper', value: 30, color: '#10B981' },
+  { name: 'Glass', value: 15, color: '#F59E0B' },
+  { name: 'Metal', value: 10, color: '#EF4444' },
+];
+
 const ProfilePage = () => {
   const theme = useTheme();
-  const { user } = useAuth(); // Remove updateUser if not used
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
-  const [profileError, setProfileError] = useState(''); // Renamed from error to profileError
+  const [profileError, setProfileError] = useState('');
   const [tabValue, setTabValue] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Define fetchProfileData with useCallback to avoid dependency issues
   const fetchProfileData = useCallback(async () => {
     const toastId = showLoading('Loading profile data...');
     try {
       setLoading(true);
-      console.log('Fetching profile data...');
       const response = await userService.getProfile();
-      console.log('Profile data received:', response.data);
       setProfileData(response.data);
       setProfileError('');
       dismissToast(toastId);
@@ -104,16 +138,15 @@ const ProfilePage = () => {
       dismissToast(toastId);
       setProfileError('Failed to load profile data. Using local data.');
       showError('Could not fetch profile data. Showing cached version.');
-      // Fallback to local user data
       setProfileData(user);
     } finally {
       setLoading(false);
     }
-  }, [user]); // Add user as dependency
+  }, [user]);
 
   useEffect(() => {
     fetchProfileData();
-  }, [fetchProfileData]); // Now includes fetchProfileData in dependencies
+  }, [fetchProfileData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -126,7 +159,6 @@ const ProfilePage = () => {
   };
 
   const handleShare = () => {
-    // Share profile (mock)
     showSuccess('Profile link copied to clipboard!');
   };
 
@@ -138,15 +170,23 @@ const ProfilePage = () => {
     }, 2000);
   };
 
+  const getRoleColor = () => {
+    if (userData?.role === 'Admin') return '#EF4444';
+    if (userData?.role === 'Driver') return '#F59E0B';
+    return '#4F46E5';
+  };
+
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <LinearProgress color="primary" />
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <Typography variant="h6" color="textSecondary">
-            Loading profile...
-          </Typography>
-        </Box>
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4 }} />
+          </Grid>
+          <Grid item xs={12}>
+            <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 4 }} />
+          </Grid>
+        </Grid>
       </Container>
     );
   }
@@ -182,12 +222,13 @@ const ProfilePage = () => {
         {/* Profile Header */}
         <motion.div variants={itemVariants}>
           <Paper 
-            elevation={3}
+            elevation={0}
             sx={{ 
-              p: 3, 
-              mb: 3,
+              p: 4, 
+              mb: 4,
               borderRadius: 4,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main}15 0%, ${theme.palette.secondary.main}05 100%)`,
+              background: `linear-gradient(135deg, ${alpha('#4F46E5', 0.08)} 0%, ${alpha('#7C3AED', 0.03)} 100%)`,
+              border: `1px solid ${alpha('#4F46E5', 0.1)}`,
               position: 'relative',
               overflow: 'hidden'
             }}
@@ -196,17 +237,29 @@ const ProfilePage = () => {
             <Box
               sx={{
                 position: 'absolute',
-                top: -50,
-                right: -50,
-                width: 200,
-                height: 200,
+                top: -80,
+                right: -80,
+                width: 250,
+                height: 250,
                 borderRadius: '50%',
-                background: `radial-gradient(circle, ${theme.palette.primary.main}20 0%, transparent 70%)`,
+                background: `radial-gradient(circle, ${alpha('#4F46E5', 0.15)} 0%, transparent 70%)`,
+                zIndex: 0
+              }}
+            />
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: -80,
+                left: -80,
+                width: 250,
+                height: 250,
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${alpha('#7C3AED', 0.1)} 0%, transparent 70%)`,
                 zIndex: 0
               }}
             />
             
-            <Grid container spacing={3} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
+            <Grid container spacing={4} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
               <Grid item>
                 <Zoom in timeout={500}>
                   <Badge
@@ -214,18 +267,18 @@ const ProfilePage = () => {
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     badgeContent={
                       <Tooltip title="Verified Account">
-                        <VerifiedIcon sx={{ color: theme.palette.primary.main, fontSize: 24 }} />
+                        <VerifiedIcon sx={{ color: getRoleColor(), fontSize: 28, bgcolor: 'white', borderRadius: '50%', p: 0.5 }} />
                       </Tooltip>
                     }
                   >
                     <Avatar
                       sx={{
-                        width: 120,
-                        height: 120,
-                        bgcolor: 'primary.main',
+                        width: 130,
+                        height: 130,
+                        background: `linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)`,
                         fontSize: '3.5rem',
-                        border: `4px solid ${theme.palette.background.paper}`,
-                        boxShadow: theme.shadows[3]
+                        border: `4px solid ${alpha('#fff', 0.2)}`,
+                        boxShadow: `0 8px 25px ${alpha('#4F46E5', 0.3)}`,
                       }}
                     >
                       {userData?.name?.charAt(0).toUpperCase() || 'U'}
@@ -234,81 +287,79 @@ const ProfilePage = () => {
                 </Zoom>
               </Grid>
               <Grid item xs>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
+                  <Typography variant="h3" sx={{ fontWeight: 800, color: '#1E293B' }}>
                     {userData?.name || 'User'}
                   </Typography>
                   {userData?.role === 'Admin' && (
                     <Chip
                       icon={<StarIcon />}
                       label="Admin"
-                      color="warning"
-                      size="small"
+                      sx={{ bgcolor: alpha('#EF4444', 0.1), color: '#EF4444', fontWeight: 600 }}
                     />
                   )}
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
                   <Chip
                     icon={<BadgeIcon />}
                     label={userData?.role || 'Citizen'}
-                    color="primary"
-                    size="small"
+                    sx={{ bgcolor: alpha(getRoleColor(), 0.1), color: getRoleColor(), fontWeight: 500 }}
                   />
                   <Chip
                     icon={<EmailIcon />}
                     label={userData?.email || 'No email'}
                     variant="outlined"
-                    size="small"
+                    sx={{ borderColor: alpha('#4F46E5', 0.3) }}
                   />
                   {userData?.phoneNumber && (
                     <Chip
                       icon={<PhoneIcon />}
                       label={userData.phoneNumber}
                       variant="outlined"
-                      size="small"
+                      sx={{ borderColor: alpha('#4F46E5', 0.3) }}
                     />
                   )}
                 </Box>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" sx={{ color: '#64748B' }}>
                   Member since {userData?.createdAt ? 
-                    formatDistance(new Date(userData.createdAt), new Date(), { addSuffix: true }) : 
+                    format(new Date(userData.createdAt), 'dd MMM yyyy') : 
                     'Recently'}
                 </Typography>
               </Grid>
               <Grid item>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                   <Tooltip title="Refresh Profile">
                     <IconButton 
                       onClick={handleRefresh} 
                       disabled={refreshing}
                       sx={{ 
-                        bgcolor: theme.palette.background.paper,
-                        boxShadow: theme.shadows[1]
+                        bgcolor: alpha('#4F46E5', 0.05),
+                        '&:hover': { bgcolor: alpha('#4F46E5', 0.1) }
                       }}
                     >
-                      <TimelineIcon />
+                      <TimelineIcon sx={{ color: '#4F46E5' }} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Share Profile">
                     <IconButton 
                       onClick={handleShare}
                       sx={{ 
-                        bgcolor: theme.palette.background.paper,
-                        boxShadow: theme.shadows[1]
+                        bgcolor: alpha('#4F46E5', 0.05),
+                        '&:hover': { bgcolor: alpha('#4F46E5', 0.1) }
                       }}
                     >
-                      <ShareIcon />
+                      <ShareIcon sx={{ color: '#4F46E5' }} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Download Report">
                     <IconButton 
                       onClick={handleDownloadReport}
                       sx={{ 
-                        bgcolor: theme.palette.background.paper,
-                        boxShadow: theme.shadows[1]
+                        bgcolor: alpha('#4F46E5', 0.05),
+                        '&:hover': { bgcolor: alpha('#4F46E5', 0.1) }
                       }}
                     >
-                      <DownloadIcon />
+                      <DownloadIcon sx={{ color: '#4F46E5' }} />
                     </IconButton>
                   </Tooltip>
                   <Button
@@ -316,8 +367,13 @@ const ProfilePage = () => {
                     startIcon={<EditIcon />}
                     onClick={() => navigate('/profile/edit')}
                     sx={{
-                      ml: 1,
-                      background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`,
+                      borderRadius: 2,
+                      px: 3,
+                      background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 20px rgba(79, 70, 229, 0.4)'
+                      }
                     }}
                   >
                     Edit Profile
@@ -328,27 +384,153 @@ const ProfilePage = () => {
           </Paper>
         </motion.div>
 
+        {/* Stats Cards */}
+        <motion.div variants={itemVariants}>
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  background: alpha('#10B981', 0.05),
+                  border: `1px solid ${alpha('#10B981', 0.1)}`,
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ bgcolor: alpha('#10B981', 0.1), color: '#10B981' }}>
+                      <CheckCircleIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: '#10B981' }}>
+                        <CountUp end={userData?.reports?.length || 0} duration={2} />
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">Total Reports</Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  background: alpha('#4F46E5', 0.05),
+                  border: `1px solid ${alpha('#4F46E5', 0.1)}`,
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ bgcolor: alpha('#4F46E5', 0.1), color: '#4F46E5' }}>
+                      <CheckCircleIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5' }}>
+                        <CountUp end={userData?.reports?.filter(r => r.status === 'RESOLVED').length || 0} duration={2} />
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">Resolved</Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  background: alpha('#F59E0B', 0.05),
+                  border: `1px solid ${alpha('#F59E0B', 0.1)}`,
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B' }}>
+                      <EmojiEventsIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: '#F59E0B' }}>
+                        <CountUp end={userData?.rewards?.points || 0} duration={2} />
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">Points Earned</Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  background: alpha('#EF4444', 0.05),
+                  border: `1px solid ${alpha('#EF4444', 0.1)}`,
+                  transition: 'transform 0.3s',
+                  '&:hover': { transform: 'translateY(-4px)' }
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ bgcolor: alpha('#EF4444', 0.1), color: '#EF4444' }}>
+                      <TrendingUpIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: '#EF4444' }}>
+                        <CountUp end={userData?.recycling?.total || 0} duration={2} /> kg
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">Recycled</Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </motion.div>
+
         {/* Tabs */}
         <motion.div variants={itemVariants}>
-          <Paper 
-            sx={{ 
+          <Paper
+            elevation={0}
+            sx={{
               mb: 3,
               borderRadius: 3,
+              background: alpha(theme.palette.background.paper, 0.95),
+              border: `1px solid ${alpha('#4F46E5', 0.1)}`,
               overflow: 'hidden'
             }}
           >
-            <Tabs 
-              value={tabValue} 
-              onChange={handleTabChange} 
-              variant="scrollable" 
+            <Tabs
+              value={tabValue}
+              onChange={handleTabChange}
+              variant="scrollable"
               scrollButtons="auto"
               sx={{
                 '& .MuiTab-root': {
                   minHeight: 60,
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
                   transition: 'all 0.3s',
                   '&:hover': {
-                    backgroundColor: theme.palette.action.hover,
+                    backgroundColor: alpha('#4F46E5', 0.05)
                   }
+                },
+                '& .Mui-selected': {
+                  color: '#4F46E5 !important'
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#4F46E5',
+                  height: 3
                 }
               }}
             >
@@ -356,6 +538,7 @@ const ProfilePage = () => {
               <Tab label="Activity" icon={<ReportIcon />} iconPosition="start" />
               <Tab label="Rewards" icon={<EmojiEventsIcon />} iconPosition="start" />
               <Tab label="Recycling" icon={<RecyclingIcon />} iconPosition="start" />
+              <Tab label="Analytics" icon={<TrendingUpIcon />} iconPosition="start" />
               <Tab label="Security" icon={<SecurityIcon />} iconPosition="start" />
               <Tab label="Notifications" icon={<NotificationsIcon />} iconPosition="start" />
             </Tabs>
@@ -364,11 +547,14 @@ const ProfilePage = () => {
 
         {/* Tab Content */}
         <motion.div variants={itemVariants}>
-          <Paper 
-            sx={{ 
+          <Paper
+            elevation={0}
+            sx={{
               p: 4,
               borderRadius: 4,
-              minHeight: 400
+              background: alpha(theme.palette.background.paper, 0.95),
+              border: `1px solid ${alpha('#4F46E5', 0.1)}`,
+              minHeight: 500
             }}
           >
             <AnimatePresence mode="wait">
@@ -382,54 +568,54 @@ const ProfilePage = () => {
                 {/* Personal Info Tab */}
                 {tabValue === 0 && (
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
                       Personal Information
                     </Typography>
                     <Grid container spacing={4}>
                       <Grid item xs={12} md={6}>
-                        <List>
+                        <List sx={{ bgcolor: alpha('#4F46E5', 0.02), borderRadius: 3 }}>
                           <ListItem>
                             <ListItemIcon>
-                              <PersonIcon color="primary" />
+                              <PersonIcon sx={{ color: '#4F46E5' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary="Full Name"
                               secondary={userData?.name || 'Not provided'}
                               primaryTypographyProps={{ variant: 'subtitle2', color: 'textSecondary' }}
-                              secondaryTypographyProps={{ variant: 'body1' }}
+                              secondaryTypographyProps={{ variant: 'body1', sx: { fontWeight: 500 } }}
                             />
                           </ListItem>
-                          <Divider variant="inset" component="li" />
+                          <Divider component="li" />
                           <ListItem>
                             <ListItemIcon>
-                              <EmailIcon color="primary" />
+                              <EmailIcon sx={{ color: '#4F46E5' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary="Email"
                               secondary={userData?.email || 'Not provided'}
                               primaryTypographyProps={{ variant: 'subtitle2', color: 'textSecondary' }}
-                              secondaryTypographyProps={{ variant: 'body1' }}
+                              secondaryTypographyProps={{ variant: 'body1', sx: { fontWeight: 500 } }}
                             />
                           </ListItem>
-                          <Divider variant="inset" component="li" />
+                          <Divider component="li" />
                           <ListItem>
                             <ListItemIcon>
-                              <PhoneIcon color="primary" />
+                              <PhoneIcon sx={{ color: '#4F46E5' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary="Phone Number"
                               secondary={userData?.phoneNumber || 'Not provided'}
                               primaryTypographyProps={{ variant: 'subtitle2', color: 'textSecondary' }}
-                              secondaryTypographyProps={{ variant: 'body1' }}
+                              secondaryTypographyProps={{ variant: 'body1', sx: { fontWeight: 500 } }}
                             />
                           </ListItem>
                         </List>
                       </Grid>
                       <Grid item xs={12} md={6}>
-                        <List>
+                        <List sx={{ bgcolor: alpha('#4F46E5', 0.02), borderRadius: 3 }}>
                           <ListItem>
                             <ListItemIcon>
-                              <LocationOnIcon color="primary" />
+                              <LocationOnIcon sx={{ color: '#4F46E5' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary="Address"
@@ -444,34 +630,33 @@ const ProfilePage = () => {
                                 ) : 'Not provided'
                               }
                               primaryTypographyProps={{ variant: 'subtitle2', color: 'textSecondary' }}
-                              secondaryTypographyProps={{ variant: 'body1' }}
+                              secondaryTypographyProps={{ variant: 'body1', sx: { fontWeight: 500 } }}
                             />
                           </ListItem>
-                          <Divider variant="inset" component="li" />
+                          <Divider component="li" />
                           <ListItem>
                             <ListItemIcon>
-                              <CalendarIcon color="primary" />
+                              <CalendarIcon sx={{ color: '#4F46E5' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary="Member Since"
                               secondary={userData?.createdAt ? 
-                                formatDistance(new Date(userData.createdAt), new Date(), { addSuffix: true }) : 
-                                'Recently'
-                              }
+                                format(new Date(userData.createdAt), 'dd MMM yyyy') : 
+                                'Recently'}
                               primaryTypographyProps={{ variant: 'subtitle2', color: 'textSecondary' }}
-                              secondaryTypographyProps={{ variant: 'body1' }}
+                              secondaryTypographyProps={{ variant: 'body1', sx: { fontWeight: 500 } }}
                             />
                           </ListItem>
-                          <Divider variant="inset" component="li" />
+                          <Divider component="li" />
                           <ListItem>
                             <ListItemIcon>
-                              <BadgeIcon color="primary" />
+                              <BadgeIcon sx={{ color: '#4F46E5' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary="Account Type"
                               secondary={userData?.role || 'Citizen'}
                               primaryTypographyProps={{ variant: 'subtitle2', color: 'textSecondary' }}
-                              secondaryTypographyProps={{ variant: 'body1' }}
+                              secondaryTypographyProps={{ variant: 'body1', sx: { fontWeight: 500 } }}
                             />
                           </ListItem>
                         </List>
@@ -483,42 +668,62 @@ const ProfilePage = () => {
                 {/* Activity Tab */}
                 {tabValue === 1 && (
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
                       Recent Activity
                     </Typography>
                     {userData?.reports && userData.reports.length > 0 ? (
                       <List>
                         {userData.reports.slice(0, 5).map((report, index) => (
                           <Grow in timeout={500} key={report.id || index}>
-                            <ListItem
-                              secondaryAction={
+                            <Paper
+                              elevation={0}
+                              sx={{
+                                mb: 2,
+                                p: 2,
+                                borderRadius: 2,
+                                bgcolor: alpha('#4F46E5', 0.02),
+                                border: `1px solid ${alpha('#4F46E5', 0.05)}`,
+                                transition: 'all 0.3s',
+                                '&:hover': { bgcolor: alpha('#4F46E5', 0.05) }
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Avatar sx={{ bgcolor: report.status === 'RESOLVED' ? alpha('#10B981', 0.1) : alpha('#F59E0B', 0.1) }}>
+                                    {report.status === 'RESOLVED' ? <CheckCircleIcon sx={{ color: '#10B981' }} /> : <ScheduleIcon sx={{ color: '#F59E0B' }} />}
+                                  </Avatar>
+                                  <Box>
+                                    <Typography variant="body1" sx={{ fontWeight: 600 }}>{report.title}</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {formatDistance(new Date(report.createdAt), new Date(), { addSuffix: true })}
+                                    </Typography>
+                                  </Box>
+                                </Box>
                                 <Chip
                                   label={report.status}
                                   size="small"
-                                  color={report.status === 'RESOLVED' ? 'success' : 'warning'}
+                                  sx={{
+                                    bgcolor: report.status === 'RESOLVED' ? alpha('#10B981', 0.1) : alpha('#F59E0B', 0.1),
+                                    color: report.status === 'RESOLVED' ? '#10B981' : '#F59E0B',
+                                    fontWeight: 600
+                                  }}
                                 />
-                              }
-                            >
-                              <ListItemIcon>
-                                <ReportIcon color={report.status === 'RESOLVED' ? 'success' : 'warning'} />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={report.title}
-                                secondary={formatDistance(new Date(report.createdAt), new Date(), { addSuffix: true })}
-                              />
-                            </ListItem>
+                              </Box>
+                            </Paper>
                           </Grow>
                         ))}
                       </List>
                     ) : (
-                      <Typography color="textSecondary" align="center" sx={{ py: 4 }}>
-                        No recent activity
-                      </Typography>
+                      <Box sx={{ textAlign: 'center', py: 6 }}>
+                        <ReportIcon sx={{ fontSize: 64, color: alpha('#4F46E5', 0.2), mb: 2 }} />
+                        <Typography color="textSecondary">No recent activity</Typography>
+                      </Box>
                     )}
                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                       <Button
                         variant="outlined"
                         onClick={() => navigate(user?.role === 'Admin' ? '/admin/reports' : '/citizen/my-reports')}
+                        sx={{ borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}
                       >
                         View All Reports
                       </Button>
@@ -529,52 +734,46 @@ const ProfilePage = () => {
                 {/* Rewards Tab */}
                 {tabValue === 2 && (
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
                       Rewards & Achievements
                     </Typography>
                     <Grid container spacing={3} sx={{ mb: 4 }}>
                       <Grid item xs={12} md={4}>
                         <Zoom in timeout={500}>
-                          <Card sx={{ textAlign: 'center', p: 2 }}>
-                            <CardContent>
-                              <EmojiEventsIcon sx={{ fontSize: 60, color: 'gold', mb: 1 }} />
-                              <Typography variant="h3" sx={{ fontWeight: 700, color: 'gold' }}>
-                                <CountUp end={userData?.rewards?.points || 0} duration={2} />
-                              </Typography>
-                              <Typography color="textSecondary">Total Points</Typography>
-                            </CardContent>
+                          <Card sx={{ textAlign: 'center', p: 3, borderRadius: 3, background: alpha('#F59E0B', 0.05), border: `1px solid ${alpha('#F59E0B', 0.1)}` }}>
+                            <EmojiEventsIcon sx={{ fontSize: 50, color: '#F59E0B', mb: 1 }} />
+                            <Typography variant="h3" sx={{ fontWeight: 700, color: '#F59E0B' }}>
+                              <CountUp end={userData?.rewards?.points || 0} duration={2} />
+                            </Typography>
+                            <Typography color="textSecondary">Total Points</Typography>
                           </Card>
                         </Zoom>
                       </Grid>
                       <Grid item xs={12} md={4}>
                         <Zoom in timeout={500} style={{ transitionDelay: '100ms' }}>
-                          <Card sx={{ textAlign: 'center', p: 2 }}>
-                            <CardContent>
-                              <BadgeIcon sx={{ fontSize: 60, color: 'primary.main', mb: 1 }} />
-                              <Typography variant="h3" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                                <CountUp end={userData?.rewards?.level || 1} duration={2} />
-                              </Typography>
-                              <Typography color="textSecondary">Current Level</Typography>
-                            </CardContent>
+                          <Card sx={{ textAlign: 'center', p: 3, borderRadius: 3, background: alpha('#4F46E5', 0.05), border: `1px solid ${alpha('#4F46E5', 0.1)}` }}>
+                            <BadgeIcon sx={{ fontSize: 50, color: '#4F46E5', mb: 1 }} />
+                            <Typography variant="h3" sx={{ fontWeight: 700, color: '#4F46E5' }}>
+                              <CountUp end={userData?.rewards?.level || 1} duration={2} />
+                            </Typography>
+                            <Typography color="textSecondary">Current Level</Typography>
                           </Card>
                         </Zoom>
                       </Grid>
                       <Grid item xs={12} md={4}>
                         <Zoom in timeout={500} style={{ transitionDelay: '200ms' }}>
-                          <Card sx={{ textAlign: 'center', p: 2 }}>
-                            <CardContent>
-                              <RecyclingIcon sx={{ fontSize: 60, color: 'success.main', mb: 1 }} />
-                              <Typography variant="h3" sx={{ fontWeight: 700, color: 'success.main' }}>
-                                <CountUp end={userData?.rewards?.badges?.length || 0} duration={2} />
-                              </Typography>
-                              <Typography color="textSecondary">Badges Earned</Typography>
-                            </CardContent>
+                          <Card sx={{ textAlign: 'center', p: 3, borderRadius: 3, background: alpha('#10B981', 0.05), border: `1px solid ${alpha('#10B981', 0.1)}` }}>
+                            <RecyclingIcon sx={{ fontSize: 50, color: '#10B981', mb: 1 }} />
+                            <Typography variant="h3" sx={{ fontWeight: 700, color: '#10B981' }}>
+                              <CountUp end={userData?.rewards?.badges?.length || 0} duration={2} />
+                            </Typography>
+                            <Typography color="textSecondary">Badges Earned</Typography>
                           </Card>
                         </Zoom>
                       </Grid>
                     </Grid>
 
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600 }}>
                       Badges
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -584,14 +783,11 @@ const ProfilePage = () => {
                             <Chip
                               icon={<EmojiEventsIcon />}
                               label={badge.name}
-                              color="primary"
-                              variant="outlined"
-                              sx={{ 
-                                p: 2,
-                                '&:hover': {
-                                  transform: 'scale(1.05)',
-                                  transition: 'transform 0.2s'
-                                }
+                              sx={{
+                                bgcolor: alpha('#4F46E5', 0.1),
+                                color: '#4F46E5',
+                                fontWeight: 500,
+                                '&:hover': { transform: 'scale(1.05)' }
                               }}
                             />
                           </Grow>
@@ -606,118 +802,135 @@ const ProfilePage = () => {
                 {/* Recycling Tab */}
                 {tabValue === 3 && (
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
                       Recycling Statistics
                     </Typography>
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={6}>
-                        <Card sx={{ 
-                          background: `linear-gradient(135deg, ${theme.palette.success.light}20 0%, ${theme.palette.success.main}10 100%)`,
-                        }}>
-                          <CardContent>
-                            <Typography variant="h6" gutterBottom color="success.main">
-                              Total Recycled
-                            </Typography>
-                            <Typography variant="h2" color="success.main" sx={{ fontWeight: 700 }}>
-                              <CountUp end={userData?.recycling?.total || 0} duration={2} /> kg
-                            </Typography>
-                          </CardContent>
+                        <Card sx={{ p: 3, borderRadius: 3, background: alpha('#10B981', 0.05), border: `1px solid ${alpha('#10B981', 0.1)}` }}>
+                          <Typography variant="subtitle1" gutterBottom color="#10B981">Material Distribution</Typography>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                              <Pie
+                                data={materialData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                dataKey="value"
+                              >
+                                {materialData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
                         </Card>
                       </Grid>
                       <Grid item xs={12} md={6}>
-                        <Card sx={{ 
-                          background: `linear-gradient(135deg, ${theme.palette.info.light}20 0%, ${theme.palette.info.main}10 100%)`,
-                        }}>
-                          <CardContent>
-                            <Typography variant="h6" gutterBottom color="info.main">
-                              CO₂ Saved
-                            </Typography>
-                            <Typography variant="h2" color="info.main" sx={{ fontWeight: 700 }}>
-                              <CountUp end={userData?.recycling?.co2Saved || 0} duration={2} /> kg
-                            </Typography>
-                          </CardContent>
+                        <Card sx={{ p: 3, borderRadius: 3, background: alpha('#3B82F6', 0.05), border: `1px solid ${alpha('#3B82F6', 0.1)}` }}>
+                          <Typography variant="subtitle1" gutterBottom color="#3B82F6">Monthly Trend</Typography>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <AreaChart data={activityData}>
+                              <CartesianGrid strokeDasharray="3 3" stroke={alpha('#4F46E5', 0.1)} />
+                              <XAxis dataKey="month" stroke="#64748B" />
+                              <YAxis stroke="#64748B" />
+                              <RechartsTooltip />
+                              <Area type="monotone" dataKey="recycling" stroke="#10B981" fill={alpha('#10B981', 0.2)} />
+                            </AreaChart>
+                          </ResponsiveContainer>
                         </Card>
                       </Grid>
                     </Grid>
                   </Box>
                 )}
 
-                {/* Security Tab */}
+                {/* Analytics Tab */}
                 {tabValue === 4 && (
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
+                      Performance Analytics
+                    </Typography>
+                    <Card sx={{ p: 3, borderRadius: 3, background: alpha('#4F46E5', 0.02), border: `1px solid ${alpha('#4F46E5', 0.1)}` }}>
+                      <Typography variant="subtitle1" gutterBottom color="#4F46E5">Reports & Recycling Trend</Typography>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={activityData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={alpha('#4F46E5', 0.1)} />
+                          <XAxis dataKey="month" stroke="#64748B" />
+                          <YAxis stroke="#64748B" />
+                          <RechartsTooltip />
+                          <Bar dataKey="reports" fill="#4F46E5" name="Reports" radius={[8, 8, 0, 0]} />
+                          <Bar dataKey="recycling" fill="#10B981" name="Recycling (kg)" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  </Box>
+                )}
+
+                {/* Security Tab */}
+                {tabValue === 5 && (
+                  <Box>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
                       Security Settings
                     </Typography>
-                    <List>
+                    <List sx={{ bgcolor: alpha('#4F46E5', 0.02), borderRadius: 3 }}>
                       <ListItem
                         secondaryAction={
-                          <Button variant="outlined" size="small">Change</Button>
+                          <Button variant="outlined" size="small" sx={{ borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}>Change</Button>
                         }
                       >
                         <ListItemIcon>
-                          <SecurityIcon color="primary" />
+                          <SecurityIcon sx={{ color: '#4F46E5' }} />
                         </ListItemIcon>
-                        <ListItemText
-                          primary="Password"
-                          secondary="Last changed 30 days ago"
-                        />
+                        <ListItemText primary="Password" secondary="Last changed 30 days ago" />
                       </ListItem>
                       <Divider component="li" />
                       <ListItem
                         secondaryAction={
-                          <Button variant="outlined" size="small">Enable</Button>
+                          <Button variant="outlined" size="small" sx={{ borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}>Enable</Button>
                         }
                       >
                         <ListItemIcon>
-                          <SecurityIcon color="primary" />
+                          <SecurityIcon sx={{ color: '#4F46E5' }} />
                         </ListItemIcon>
-                        <ListItemText
-                          primary="Two-Factor Authentication"
-                          secondary="Not enabled - Recommended for better security"
-                        />
+                        <ListItemText primary="Two-Factor Authentication" secondary="Not enabled - Recommended for better security" />
                       </ListItem>
                     </List>
                   </Box>
                 )}
 
                 {/* Notifications Tab */}
-                {tabValue === 5 && (
+                {tabValue === 6 && (
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#4F46E5', fontWeight: 600, mb: 3 }}>
                       Notification Preferences
                     </Typography>
-                    <List>
+                    <List sx={{ bgcolor: alpha('#4F46E5', 0.02), borderRadius: 3 }}>
                       <ListItem
                         secondaryAction={
-                          <Button variant="outlined" size="small">Configure</Button>
+                          <Button variant="outlined" size="small" sx={{ borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}>Configure</Button>
                         }
                       >
-                        <ListItemText
-                          primary="Email Notifications"
-                          secondary="Receive updates via email"
-                        />
+                        <ListItemText primary="Email Notifications" secondary="Receive updates via email" />
                       </ListItem>
                       <Divider component="li" />
                       <ListItem
                         secondaryAction={
-                          <Button variant="outlined" size="small">Configure</Button>
+                          <Button variant="outlined" size="small" sx={{ borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}>Configure</Button>
                         }
                       >
-                        <ListItemText
-                          primary="SMS Notifications"
-                          secondary="Receive updates via SMS"
-                        />
+                        <ListItemText primary="SMS Notifications" secondary="Receive updates via SMS" />
                       </ListItem>
                       <Divider component="li" />
                       <ListItem
                         secondaryAction={
-                          <Button variant="outlined" size="small">Configure</Button>
+                          <Button variant="outlined" size="small" sx={{ borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}>Configure</Button>
                         }
                       >
-                        <ListItemText
-                          primary="Push Notifications"
-                          secondary="Receive updates in browser"
-                        />
+                        <ListItemText primary="Push Notifications" secondary="Receive updates in browser" />
                       </ListItem>
                     </List>
                   </Box>

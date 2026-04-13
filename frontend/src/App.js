@@ -10,6 +10,10 @@ import CustomThemeProvider from './contexts/ThemeContext';
 import LandingPage from './pages/LandingPage';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
+import NotificationsPage from './pages/NotificationsPage';
+import SettingsPage from './pages/SettingsPage';
+import HelpPage from './pages/HelpPage';
+import TestPage from './pages/TestPage';
 
 // Citizen Components
 import CitizenDashboard from './components/citizen/CitizenDashboard';
@@ -33,8 +37,13 @@ import AuditLogs from './components/admin/AuditLogs';
 // Driver Components
 import DriverDashboard from './components/driver/DriverDashboard';
 import AssignedRoutes from './components/driver/AssignedRoutes';
+import RouteDetails from './components/driver/RouteDetails';
 import CollectionProof from './components/driver/CollectionProof';
 import Attendance from './components/driver/Attendance';
+import DriverEarnings from './components/driver/DriverEarnings';
+import DriverPerformance from './components/driver/DriverPerformance';
+import DriverProfile from './components/driver/DriverProfile';
+import DriverNotifications from './components/driver/DriverNotifications';
 
 // Profile Components
 import ProfilePage from './components/profile/ProfilePage';
@@ -58,13 +67,13 @@ const AppContent = () => {
   return (
     <Router>
       <Routes>
-        {/* Public routes */}
+        {/* ==================== PUBLIC ROUTES ==================== */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/test" element={<div style={{ padding: 20 }}>Test Page Works!</div>} />
+        <Route path="/test" element={<TestPage />} />
 
-        {/* Profile Routes - Accessible by all authenticated users */}
+        {/* ==================== PROFILE ROUTES ==================== */}
         <Route
           path="/profile"
           element={
@@ -77,7 +86,39 @@ const AppContent = () => {
           <Route path="edit" element={<EditProfile />} />
         </Route>
 
-        {/* Citizen routes */}
+        {/* ==================== NOTIFICATION, SETTINGS & HELP ROUTES ==================== */}
+        <Route
+          path="/notifications"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <NotificationsPage />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <SettingsPage />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <HelpPage />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+
+        {/* ==================== CITIZEN ROUTES ==================== */}
         <Route
           path="/citizen"
           element={
@@ -96,7 +137,7 @@ const AppContent = () => {
           <Route path="scan" element={<QRScanner />} />
         </Route>
 
-        {/* Admin routes */}
+        {/* ==================== ADMIN ROUTES ==================== */}
         <Route
           path="/admin"
           element={
@@ -114,7 +155,7 @@ const AppContent = () => {
           <Route path="audit" element={<AuditLogs />} />
         </Route>
 
-        {/* Driver routes */}
+        {/* ==================== DRIVER ROUTES ==================== */}
         <Route
           path="/driver"
           element={
@@ -123,17 +164,33 @@ const AppContent = () => {
             </PrivateRoute>
           }
         >
+          {/* Main Dashboard */}
           <Route index element={<DriverDashboard />} />
+          
+          {/* Route Management */}
           <Route path="routes" element={<AssignedRoutes />} />
+          <Route path="routes/:id" element={<RouteDetails />} />
+          
+          {/* Collection & Proof */}
           <Route path="collection" element={<CollectionProof />} />
+          
+          {/* Attendance */}
           <Route path="attendance" element={<Attendance />} />
+          
+          {/* Earnings & Performance */}
+          <Route path="earnings" element={<DriverEarnings />} />
+          <Route path="performance" element={<DriverPerformance />} />
+          
+          {/* Profile & Notifications */}
+          <Route path="profile" element={<DriverProfile />} />
+          <Route path="notifications" element={<DriverNotifications />} />
         </Route>
 
-        {/* Redirect any unknown routes to home */}
+        {/* ==================== FALLBACK ROUTE ==================== */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Toast Notifications */}
+      {/* ==================== TOAST NOTIFICATIONS ==================== */}
       <Toaster
         position="top-right"
         reverseOrder={false}
@@ -178,13 +235,13 @@ const AppContent = () => {
         }}
       />
 
-      {/* Optional: Add Chatbot for authenticated users */}
+      {/* ==================== CHATBOT ==================== */}
       {user && <Chatbot />}
     </Router>
   );
 };
 
-// Main App Component
+// ==================== MAIN APP COMPONENT ====================
 const App = () => {
   return (
     <ErrorBoundary>

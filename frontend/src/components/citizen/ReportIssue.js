@@ -75,7 +75,7 @@ const ReportIssue = () => {
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [categories] = useState([
-    { id: 'overflow', label: 'Overflowing Bin', icon: '🗑️', color: '#f44336' },
+    { id: 'overflow', label: 'Overflowing Bin', icon: '🗑️5', color: '#f44336' },
     { id: 'damaged', label: 'Bin Damaged', icon: '🔨', color: '#ff9800' },
     { id: 'missed', label: 'Missed Collection', icon: '🚛', color: '#2196f3' },
     { id: 'dumping', label: 'Illegal Dumping', icon: '🚫', color: '#9c27b0' },

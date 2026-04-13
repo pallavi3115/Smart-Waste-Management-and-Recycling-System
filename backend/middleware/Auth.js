@@ -20,30 +20,45 @@ exports.protect = async (req, res, next) => {
     if (token.startsWith('mock-jwt-token-')) {
       const userId = token.split('-').pop();
       
-      // For mock users, we need valid ObjectId format
-      // Let's create proper ObjectId-like strings
+      // Mock users with proper ObjectId format - ADDED DRIVER
       const mockUsers = {
-        '1': '000000000000000000000001', // Valid ObjectId format
-        '2': '000000000000000000000002'
+        '1': {
+          id: '000000000000000000000001',
+          _id: '000000000000000000000001',
+          name: 'Admin User',
+          email: 'admin@test.com',
+          role: 'Admin',
+          phoneNumber: '9876543210'
+        },
+        '2': {
+          id: '000000000000000000000002',
+          _id: '000000000000000000000002',
+          name: 'Citizen User',
+          email: 'citizen@test.com',
+          role: 'Citizen',
+          phoneNumber: '9876543211'
+        },
+        '3': {
+          id: '000000000000000000000003',
+          _id: '000000000000000000000003',
+          name: 'Driver User',
+          email: 'driver@test.com',
+          role: 'Driver',
+          phoneNumber: '9876543212'
+        }
       };
 
-      const mockObjectId = mockUsers[userId];
+      const user = mockUsers[userId];
       
-      if (!mockObjectId) {
+      if (!user) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid token'
+          message: 'Invalid token - User not found'
         });
       }
 
       // Set mock user with proper ObjectId format
-      req.user = {
-        id: mockObjectId,
-        _id: mockObjectId,
-        name: userId === '1' ? 'Admin User' : 'Citizen User',
-        email: userId === '1' ? 'admin@test.com' : 'citizen@test.com',
-        role: userId === '1' ? 'Admin' : 'Citizen'
-      };
+      req.user = user;
       return next();
     }
 
@@ -87,7 +102,7 @@ exports.authorize = (...roles) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `User role ${req.user.role} is not authorized to access this route`
+        message: `User role ${req.user.role} is not authorized to access this route. Required: ${roles.join(', ')}`
       });
     }
     next();

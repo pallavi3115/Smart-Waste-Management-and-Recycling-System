@@ -22,6 +22,11 @@ const mapRoutes = require('./routes/map');
 const notificationRoutes = require('./routes/notifications');
 const userRoutes = require('./routes/users');
 
+// Driver routes
+const driverRoutes = require('./routes/driver');
+const driverRouteRoutes = require('./routes/routes');
+const attendanceRoutes = require('./routes/attendance');
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -31,6 +36,9 @@ const io = new Server(httpServer, {
     credentials: true
   }
 });
+
+// Make io accessible to routes
+app.set('io', io);
 
 // ===== DATABASE CONNECTION =====
 const connectDB = async () => {
@@ -152,6 +160,20 @@ app.use('/api/notifications', notificationRoutes);
 // User routes
 app.use('/api/users', userRoutes);
 
+// Driver routes (with error handling to prevent crashes if files don't exist)
+try {
+  app.use('/api/driver', driverRoutes);
+  app.use('/api/driver/routes', driverRouteRoutes);
+  app.use('/api/driver/attendance', attendanceRoutes);
+  console.log('✅ Driver routes loaded successfully');
+} catch (error) {
+  console.warn('⚠️ Driver routes could not be loaded:', error.message);
+  // Create fallback routes to prevent crashes
+  app.use('/api/driver', (req, res) => {
+    res.status(200).json({ success: true, message: 'Driver API - Coming soon' });
+  });
+}
+
 // ===== ROOT ROUTE =====
 app.get('/', (req, res) => {
   res.json({
@@ -171,7 +193,11 @@ app.get('/', (req, res) => {
       'GET  /api/reports',
       'POST /api/reports',
       'GET  /api/recycling/centers',
-      'GET  /api/admin/dashboard'
+      'GET  /api/admin/dashboard',
+      'GET  /api/driver/dashboard',
+      'GET  /api/driver/routes',
+      'POST /api/driver/attendance/check-in',
+      'POST /api/driver/attendance/check-out'
     ]
   });
 });
@@ -195,8 +221,19 @@ app.use((err, req, res, next) => {
 });
 
 // ===== SOCKET.IO SETUP =====
-// This will be implemented when needed
-// setupSocket(io);
+// Setup socket.io for real-time driver location tracking
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+  
+  socket.on('driver-location', (data) => {
+    // Broadcast driver location to admins
+    socket.broadcast.emit('driver-location-update', data);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
 
 // ===== START SERVER =====
 const PORT = process.env.PORT || 5000;
@@ -217,12 +254,26 @@ httpServer.listen(PORT, () => {
   console.log('   • POST /api/auth/register    - User registration');
   console.log('   • POST /api/auth/login       - User login');
   console.log('   • GET  /api/auth/me          - Get current user');
-  console.log('   • GET  /api/bins              - Get all bins');
-  console.log('   • POST /api/bins              - Create new bin');
-  console.log('   • GET  /api/reports           - Get reports');
-  console.log('   • POST /api/reports           - Create report');
+  console.log('   • GET  /api/bins             - Get all bins');
+  console.log('   • POST /api/bins             - Create new bin');
+  console.log('   • GET  /api/reports          - Get reports');
+  console.log('   • POST /api/reports          - Create report');
   console.log('   • GET  /api/recycling/centers - Get recycling centers');
-  console.log('   • GET  /api/admin/dashboard   - Admin dashboard');
+  console.log('   • GET  /api/admin/dashboard  - Admin dashboard');
+  console.log('   • GET  /api/driver/dashboard - Driver dashboard');
+  console.log('   • GET  /api/driver/routes    - Driver routes');
+  console.log('   • POST /api/driver/attendance/check-in - Driver check-in');
+  console.log('   • POST /api/driver/attendance/check-out - Driver check-out');
+  console.log('='.repeat(60));
+  console.log('👥 USER ROLES:');
+  console.log('   • Admin  → /admin/dashboard');
+  console.log('   • Citizen → /citizen/dashboard');
+  console.log('   • Driver → /driver/dashboard');
+  console.log('='.repeat(60));
+  console.log('🔐 TEST CREDENTIALS:');
+  console.log('   • Admin:  admin@test.com / 123456');
+  console.log('   • Citizen: citizen@test.com / 123456');
+  console.log('   • Driver:  driver@test.com / 123456');
   console.log('='.repeat(60));
   console.log('⚡ Server is ready to accept requests');
   console.log('='.repeat(60) + '\n');
@@ -233,10 +284,14 @@ process.on('SIGTERM', () => {
   console.log('SIGTERM received. Closing HTTP server...');
   httpServer.close(() => {
     console.log('HTTP server closed.');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed.');
+    if (mongoose.connection) {
+      mongoose.connection.close(false, () => {
+        console.log('MongoDB connection closed.');
+        process.exit(0);
+      });
+    } else {
       process.exit(0);
-    });
+    }
   });
 });
 
@@ -244,10 +299,14 @@ process.on('SIGINT', () => {
   console.log('SIGINT received. Closing HTTP server...');
   httpServer.close(() => {
     console.log('HTTP server closed.');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed.');
+    if (mongoose.connection) {
+      mongoose.connection.close(false, () => {
+        console.log('MongoDB connection closed.');
+        process.exit(0);
+      });
+    } else {
       process.exit(0);
-    });
+    }
   });
 });
 

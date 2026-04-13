@@ -1,39 +1,7 @@
-// const express = require('express');
-// const {
-//   register,
-//   login,
-//   logout,
-//   getMe,
-//   updateProfile,
-//   changePassword,
-//   forgotPassword,
-//   resetPassword,
-//   verifyEmail
-// } = require('../controllers/authController');
-// const { protect } = require('../middleware/Auth');
-
-// const router = express.Router();
-
-// // Public routes
-// router.post('/register', register);
-// router.post('/login', login);
-// router.post('/forgot-password', forgotPassword);
-// router.post('/reset-password/:token', resetPassword);
-// router.get('/verify-email/:token', verifyEmail);
-
-// // Protected routes
-// router.use(protect); // All routes below this require authentication
-// router.get('/me', getMe);
-// router.post('/logout', logout);
-// router.put('/profile', updateProfile);
-// router.put('/change-password', changePassword);
-
-// module.exports = router;
-
 const express = require('express');
 const router = express.Router();
 
-// Mock users for testing
+// Mock users for testing - INCLUDING DRIVER
 const users = [
   {
     id: '1',
@@ -48,6 +16,13 @@ const users = [
     email: 'citizen@test.com',
     password: '123456',
     role: 'Citizen'
+  },
+  {
+    id: '3',
+    name: 'Driver User',
+    email: 'driver@test.com',
+    password: '123456',
+    role: 'Driver'
   }
 ];
 
@@ -115,6 +90,8 @@ router.post('/login', (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log('🔐 Login attempt:', email);
+
     // Simple validation
     if (!email || !password) {
       return res.status(400).json({
@@ -127,14 +104,17 @@ router.post('/login', (req, res) => {
     const user = users.find(u => u.email === email);
     
     if (!user || user.password !== password) {
+      console.log('❌ Login failed for:', email);
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid credentials. Use: admin@test.com, citizen@test.com, or driver@test.com with password 123456'
       });
     }
 
     // Generate token
     const token = 'mock-jwt-token-' + user.id;
+
+    console.log('✅ Login successful:', email, 'Role:', user.role);
 
     res.json({
       success: true,

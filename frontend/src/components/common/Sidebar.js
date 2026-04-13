@@ -15,7 +15,8 @@ import {
   Collapse,
   Tooltip,
   Badge,
-  Chip  // Added missing Chip import
+  Chip,
+  alpha
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -42,27 +43,24 @@ import {
   Notifications as NotificationsIcon,
   Help as HelpIcon,
   Feedback as FeedbackIcon,
-  Home as HomeIcon
-  // Removed unused MenuIcon
+  Home as HomeIcon,
+  AttachMoney as AttachMoneyIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-// Removed unused useTheme import
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
 
 const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
   const theme = useTheme();
-  // Removed unused toggleTheme
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   
   const [expandedMenus, setExpandedMenus] = useState({});
-  const [unreadCount] = useState(3); // Removed unused setUnreadCount
+  const [unreadCount] = useState(3);
 
-  // Close expanded menus when sidebar is collapsed
   useEffect(() => {
     if (!open) {
       setExpandedMenus({});
@@ -70,7 +68,7 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
   }, [open]);
 
   const handleMenuExpand = (menu) => {
-    if (!open) return; // Don't expand when sidebar is collapsed
+    if (!open) return;
     setExpandedMenus(prev => ({
       ...prev,
       [menu]: !prev[menu]
@@ -78,167 +76,65 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
   };
 
   const handleNavigation = (path) => {
-  navigate(path);
-  if (window.innerWidth < 600) {
-    handleDrawerToggle();
-  }
-};
+    navigate(path);
+    if (window.innerWidth < 600) {
+      handleDrawerToggle();
+    }
+  };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  // Check if a route is active
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
   };
 
-  // Get menu items based on user role
   const getMenuItems = () => {
     const mainItems = [
-      { 
-        text: 'Home', 
-        icon: <HomeIcon />, 
-        path: '/',
-        showInCollapsed: true
-      },
-      { 
-        text: 'Dashboard', 
-        icon: <DashboardIcon />, 
-        path: `/${user?.role?.toLowerCase()}`,
-        showInCollapsed: true
-      },
+      { text: 'Home', icon: <HomeIcon />, path: '/', showInCollapsed: true },
+      { text: 'Dashboard', icon: <DashboardIcon />, path: `/${user?.role?.toLowerCase()}`, showInCollapsed: true },
     ];
 
     const citizenItems = [
-      { 
-        text: 'Report Issue', 
-        icon: <ReportIcon />, 
-        path: '/citizen/report',
-        badge: null
-      },
-      { 
-        text: 'My Reports', 
-        icon: <InfoIcon />, 
-        path: '/citizen/my-reports',
-        badge: null
-      },
-      { 
-        text: 'Recycling Guide', 
-        icon: <RecyclingIcon />, 
-        path: '/citizen/recycling-guide' 
-      },
-      { 
-        text: 'Rewards', 
-        icon: <EmojiEventsIcon />, 
-        path: '/citizen/rewards',
-        badge: { count: 2, color: 'warning' } // New rewards available
-      },
-      { 
-        text: 'Nearby Bins', 
-        icon: <LocationOnIcon />, 
-        path: '/citizen/nearby' 
-      },
-      { 
-        text: 'Public Toilets', 
-        icon: <WcIcon />, 
-        path: '/citizen/toilets' 
-      },
-      { 
-        text: 'Scan QR', 
-        icon: <QrCodeScannerIcon />, 
-        path: '/citizen/scan' 
-      },
+      { text: 'Report Issue', icon: <ReportIcon />, path: '/citizen/report' },
+      { text: 'My Reports', icon: <InfoIcon />, path: '/citizen/my-reports' },
+      { text: 'Recycling Guide', icon: <RecyclingIcon />, path: '/citizen/recycling-guide' },
+      { text: 'Rewards', icon: <EmojiEventsIcon />, path: '/citizen/rewards', badge: { count: 2, color: 'warning' } },
+      { text: 'Nearby Bins', icon: <LocationOnIcon />, path: '/citizen/nearby' },
+      { text: 'Public Toilets', icon: <WcIcon />, path: '/citizen/toilets' },
+      { text: 'Scan QR', icon: <QrCodeScannerIcon />, path: '/citizen/scan' },
     ];
 
     const adminItems = [
-      { 
-        text: 'Bin Management', 
-        icon: <DeleteIcon />, 
-        path: '/admin/bins',
-        badge: { count: 5, color: 'error' } // 5 bins need attention
-      },
-      { 
-        text: 'Recycling Centers', 
-        icon: <RecyclingIcon />, 
-        path: '/admin/centers' 
-      },
-      { 
-        text: 'Reports', 
-        icon: <ReportIcon />, 
-        path: '/admin/reports',
-        badge: { count: 12, color: 'warning' } // 12 pending reports
-      },
-      { 
-        text: 'Analytics', 
-        icon: <BarChartIcon />, 
-        path: '/admin/analytics' 
-      },
-      { 
-        text: 'Route Optimization', 
-        icon: <RouteIcon />, 
-        path: '/admin/routes' 
-      },
-      { 
-        text: 'Staff Management', 
-        icon: <PeopleIcon />, 
-        path: '/admin/staff' 
-      },
-      { 
-        text: 'Audit Logs', 
-        icon: <AssessmentIcon />, 
-        path: '/admin/audit' 
-      },
+      { text: 'Bin Management', icon: <DeleteIcon />, path: '/admin/bins', badge: { count: 5, color: 'error' } },
+      { text: 'Recycling Centers', icon: <RecyclingIcon />, path: '/admin/centers' },
+      { text: 'Reports', icon: <ReportIcon />, path: '/admin/reports', badge: { count: 12, color: 'warning' } },
+      { text: 'Analytics', icon: <BarChartIcon />, path: '/admin/analytics' },
+      { text: 'Route Optimization', icon: <RouteIcon />, path: '/admin/routes' },
+      { text: 'Staff Management', icon: <PeopleIcon />, path: '/admin/staff' },
+      { text: 'Audit Logs', icon: <AssessmentIcon />, path: '/admin/audit' },
     ];
 
     const driverItems = [
-      { 
-        text: 'Assigned Routes', 
-        icon: <RouteIcon />, 
-        path: '/driver/routes',
-        badge: { count: 3, color: 'info' } // 3 routes today
-      },
-      { 
-        text: 'Collection Proof', 
-        icon: <InventoryIcon />, 
-        path: '/driver/collection' 
-      },
-      { 
-        text: 'Attendance', 
-        icon: <PeopleIcon />, 
-        path: '/driver/attendance' 
-      },
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/driver' },
+      { text: 'My Routes', icon: <RouteIcon />, path: '/driver/routes', badge: { count: 3, color: 'info' } },
+      { text: 'Collection Proof', icon: <InventoryIcon />, path: '/driver/collection' },
+      { text: 'Attendance', icon: <PeopleIcon />, path: '/driver/attendance' },
+      { text: 'Earnings', icon: <AttachMoneyIcon />, path: '/driver/earnings' },
+      { text: 'Performance', icon: <AssessmentIcon />, path: '/driver/performance' },
     ];
 
-    const profileItems = [
-      { 
-        text: 'Profile', 
-        icon: <PersonIcon />, 
-        path: '/profile',
-        showInCollapsed: true
-      },
-      { 
-        text: 'Notifications', 
-        icon: <NotificationsIcon />, 
-        path: '/notifications',
-        badge: { count: unreadCount, color: 'error' },
-        showInCollapsed: true
-      },
-      { 
-        text: 'Settings', 
-        icon: <SettingsIcon />, 
-        path: '/settings' 
-      },
+    const commonItems = [
+      { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: { count: unreadCount, color: 'error' }, showInCollapsed: true },
+      { text: 'Settings', icon: <SettingsIcon />, path: '/settings', showInCollapsed: true },
+      { text: 'Help & Support', icon: <HelpIcon />, path: '/help', showInCollapsed: true },
+      { text: 'Profile', icon: <PersonIcon />, path: '/profile', showInCollapsed: true },
+      { text: 'Send Feedback', icon: <FeedbackIcon />, path: '/feedback', showInCollapsed: true },
     ];
 
-    const helpItems = [
-      { text: 'Help & Support', icon: <HelpIcon />, path: '/help' },
-      { text: 'Send Feedback', icon: <FeedbackIcon />, path: '/feedback' },
-    ];
-
-    // Combine items based on role
     let roleSpecificItems = [];
     switch (user?.role) {
       case 'Admin':
@@ -247,23 +143,20 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
       case 'Driver':
         roleSpecificItems = driverItems;
         break;
-      case 'Citizen':
       default:
         roleSpecificItems = citizenItems;
         break;
     }
 
-    return {
-      main: mainItems,
-      role: roleSpecificItems,
-      profile: profileItems,
-      help: helpItems
+    return { 
+      main: mainItems, 
+      role: roleSpecificItems, 
+      common: commonItems 
     };
   };
 
   const menuItems = getMenuItems();
 
-  // Render a single menu item
   const renderMenuItem = (item, index, showTooltip = false) => {
     const active = isActive(item.path);
     const content = (
@@ -276,21 +169,21 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
           justifyContent: open ? 'initial' : 'center',
           px: 2.5,
           mx: 1,
-          borderRadius: 1,
+          borderRadius: 2,
           mb: 0.5,
+          transition: 'all 0.2s',
           '&.Mui-selected': {
-            backgroundColor: 'primary.main',
-            color: 'white',
+            backgroundColor: alpha('#4F46E5', 0.12),
+            color: '#4F46E5',
             '&:hover': {
-              backgroundColor: 'primary.dark',
+              backgroundColor: alpha('#4F46E5', 0.18),
             },
             '& .MuiListItemIcon-root': {
-              color: 'white',
+              color: '#4F46E5',
             },
-            '& .MuiBadge-badge': {
-              backgroundColor: 'white',
-              color: 'primary.main',
-            },
+          },
+          '&:hover': {
+            backgroundColor: alpha('#4F46E5', 0.06),
           },
         }}
       >
@@ -299,7 +192,7 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
             minWidth: 0,
             mr: open ? 2 : 'auto',
             justifyContent: 'center',
-            color: active ? 'white' : 'inherit',
+            color: active ? '#4F46E5' : '#64748B',
           }}
         >
           {item.badge ? (
@@ -314,9 +207,9 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
           <ListItemText 
             primary={item.text} 
             sx={{ 
-              opacity: open ? 1 : 0,
               '& .MuiTypography-root': {
                 fontWeight: active ? 600 : 400,
+                color: active ? '#4F46E5' : '#334155',
               }
             }} 
           />
@@ -331,37 +224,30 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
         </Tooltip>
       );
     }
-
     return content;
   };
 
-  // Render a section with optional expand/collapse
   const renderSection = (title, items, sectionKey) => {
     if (!items || items.length === 0) return null;
-
     const isExpanded = expandedMenus[sectionKey];
 
     return (
       <Box key={sectionKey} sx={{ mb: 2 }}>
         {open && (
-          <ListItemButton onClick={() => handleMenuExpand(sectionKey)} sx={{ py: 0.5 }}>
+          <ListItemButton onClick={() => handleMenuExpand(sectionKey)} sx={{ py: 0.5, px: 2 }}>
             <ListItemText 
               primary={title} 
               primaryTypographyProps={{ 
                 variant: 'caption', 
-                color: 'textSecondary',
-                sx: { fontWeight: 600, letterSpacing: 1 }
+                sx: { fontWeight: 600, letterSpacing: 1, color: '#94A3B8' }
               }} 
             />
-            {isExpanded ? <ExpandLess /> : <ExpandMore />}
+            {isExpanded ? <ExpandLess sx={{ fontSize: 18, color: '#94A3B8' }} /> : <ExpandMore sx={{ fontSize: 18, color: '#94A3B8' }} />}
           </ListItemButton>
         )}
-        
         <Collapse in={open ? isExpanded : true} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
-            {items.map((item, index) => 
-              renderMenuItem(item, `${sectionKey}-${index}`, true)
-            )}
+            {items.map((item, index) => renderMenuItem(item, `${sectionKey}-${index}`, true))}
           </List>
         </Collapse>
       </Box>
@@ -379,8 +265,8 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
         '& .MuiDrawer-paper': {
           width: open ? drawerWidth : collapsedDrawerWidth,
           boxSizing: 'border-box',
-          backgroundColor: theme.palette.background.paper,
-          borderRight: `1px solid ${theme.palette.divider}`,
+          backgroundColor: '#FFFFFF',
+          borderRight: '1px solid #E2E8F0',
           overflowX: 'hidden',
           transition: theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
@@ -389,85 +275,88 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
         },
       }}
     >
-      {/* Sidebar Header with Logo and Toggle */}
+      {/* Sidebar Header */}
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between', 
-        p: open ? 2 : 1,
-        minHeight: 64
+        p: open ? 2 : 1.5,
+        minHeight: 64,
+        borderBottom: '1px solid #E2E8F0'
       }}>
         {open ? (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <RecyclingIcon sx={{ color: 'primary.main', mr: 1 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <RecyclingIcon sx={{ color: '#4F46E5', fontSize: 28 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1E293B' }}>
                 SmartWaste
               </Typography>
             </Box>
-            <IconButton onClick={toggleDrawer} size="small">
+            <IconButton onClick={toggleDrawer} size="small" sx={{ color: '#94A3B8' }}>
               <ChevronLeftIcon />
             </IconButton>
           </>
         ) : (
-          <IconButton onClick={toggleDrawer} sx={{ mx: 'auto' }}>
+          <IconButton onClick={toggleDrawer} sx={{ mx: 'auto', color: '#94A3B8' }}>
             <ChevronRightIcon />
           </IconButton>
         )}
       </Box>
 
-      <Divider />
-
-      {/* User Info - Only show when expanded */}
+      {/* User Info */}
       {open && (
         <Box 
           sx={{ 
-            p: 2, 
+            p: 2.5, 
             textAlign: 'center',
-            background: `linear-gradient(45deg, ${theme.palette.primary.light}20, ${theme.palette.primary.main}10)`,
-            m: 1,
-            borderRadius: 2
+            borderBottom: '1px solid #E2E8F0',
+            mb: 1
           }}
         >
           <Avatar
             sx={{
-              width: 70,
-              height: 70,
-              margin: '0 auto 10px',
-              bgcolor: 'primary.main',
+              width: 80,
+              height: 80,
+              margin: '0 auto 12px',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
               fontSize: '2rem',
-              border: `3px solid ${theme.palette.primary.main}`,
-              boxShadow: theme.shadows[3]
+              boxShadow: '0 8px 20px rgba(79, 70, 229, 0.3)',
             }}
           >
             {user?.name?.charAt(0).toUpperCase()}
           </Avatar>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>{user?.name}</Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: '#1E293B' }}>{user?.name}</Typography>
+          <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 500, mt: 0.5 }}>
             {user?.role}
           </Typography>
           <Chip 
             label={user?.email} 
             size="small" 
-            variant="outlined"
-            sx={{ fontSize: '0.7rem' }}
+            sx={{ 
+              mt: 1.5,
+              bgcolor: '#F1F5F9',
+              color: '#475569',
+              fontSize: '0.7rem',
+              borderRadius: '12px'
+            }}
           />
         </Box>
       )}
 
       {/* Collapsed User Avatar */}
       {!open && (
-        <Box sx={{ textAlign: 'center', py: 2 }}>
+        <Box sx={{ textAlign: 'center', py: 2, borderBottom: '1px solid #E2E8F0', mb: 1 }}>
           <Tooltip title={user?.name} placement="right">
             <Avatar
               sx={{
                 width: 45,
                 height: 45,
                 margin: '0 auto',
-                bgcolor: 'primary.main',
+                background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
                 fontSize: '1.2rem',
                 cursor: 'pointer',
-                border: `2px solid ${theme.palette.primary.main}`,
+                transition: 'transform 0.2s',
+                '&:hover': { transform: 'scale(1.05)' },
               }}
               onClick={() => navigate('/profile')}
             >
@@ -477,43 +366,32 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
         </Box>
       )}
 
-      <Divider />
-
       {/* Navigation Menu */}
       <Box sx={{ 
         flex: 1, 
         overflowY: 'auto', 
         overflowX: 'hidden',
-        '&::-webkit-scrollbar': {
-          width: '5px',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: theme.palette.primary.light,
-          borderRadius: '10px',
-        },
+        px: 1,
+        py: 1,
+        '&::-webkit-scrollbar': { width: '5px' },
+        '&::-webkit-scrollbar-thumb': { backgroundColor: '#CBD5E1', borderRadius: '10px' },
       }}>
-        {/* Main Items */}
         <List sx={{ pt: 1 }}>
-          {menuItems.main.map((item, index) => 
-            renderMenuItem(item, `main-${index}`, true)
-          )}
+          {menuItems.main.map((item, index) => renderMenuItem(item, `main-${index}`, true))}
         </List>
 
-        <Divider sx={{ my: 1 }} />
+        <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />
 
-        {/* Role-specific Items with Expand/Collapse */}
         {renderSection('QUICK ACTIONS', menuItems.role, 'role')}
-
-        {/* Profile & Settings */}
-        {renderSection('ACCOUNT', menuItems.profile, 'profile')}
-
-        {/* Help & Support */}
-        {renderSection('SUPPORT', menuItems.help, 'help')}
+        
+        <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />
+        
+        {renderSection('GENERAL', menuItems.common, 'common')}
       </Box>
 
-      <Divider />
+      <Divider sx={{ borderColor: '#E2E8F0' }} />
 
-      {/* Logout Button - Always visible */}
+      {/* Logout Button */}
       <List sx={{ p: 1 }}>
         <Tooltip title="Logout" placement="right" disableHoverListener={open}>
           <ListItem disablePadding>
@@ -523,14 +401,11 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
                 minHeight: 48,
                 justifyContent: open ? 'initial' : 'center',
                 px: 2.5,
-                borderRadius: 1,
-                color: 'error.main',
+                mx: 1,
+                borderRadius: 2,
+                color: '#EF4444',
                 '&:hover': {
-                  backgroundColor: 'error.light',
-                  color: 'white',
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
-                  },
+                  backgroundColor: '#FEF2F2',
                 },
               }}
             >
@@ -539,21 +414,21 @@ const Sidebar = ({ open, toggleDrawer, mobileOpen, handleDrawerToggle }) => {
                   minWidth: 0,
                   mr: open ? 2 : 'auto',
                   justifyContent: 'center',
-                  color: 'error.main',
+                  color: '#EF4444',
                 }}
               >
                 <LogoutIcon />
               </ListItemIcon>
-              {open && <ListItemText primary="Logout" />}
+              {open && <ListItemText primary="Logout" sx={{ '& .MuiTypography-root': { color: '#EF4444' } }} />}
             </ListItemButton>
           </ListItem>
         </Tooltip>
       </List>
 
-      {/* Version Info - Optional */}
+      {/* Version Info */}
       {open && (
         <Box sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
             v1.0.0
           </Typography>
         </Box>
