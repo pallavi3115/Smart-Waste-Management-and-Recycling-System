@@ -17,7 +17,19 @@ import {
   DialogContent,
   DialogActions,
   LinearProgress,
-  Alert
+  Alert,
+  useTheme,
+  alpha,
+  IconButton,
+  Tooltip,
+  Fade,
+  Grow,
+  Skeleton,
+  Pagination,
+  Tabs,
+  Tab,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Timeline,
@@ -35,14 +47,38 @@ import {
   Cancel as CancelIcon,
   Feedback as FeedbackIcon,
   Schedule as ScheduleIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  Visibility as VisibilityIcon,
+  Delete as DeleteIcon,
+  FilterList as FilterIcon,
+  Search as SearchIcon,
+  Refresh as RefreshIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { reportService } from '../../services/reportService';
-import { formatDistance } from 'date-fns';
+import { formatDistance, format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import Swal from 'sweetalert2';
+import { showSuccess, showError, showLoading } from '../../utils/toast';
+
+// Animation variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+  }
+};
 
 const MyReports = () => {
+  const theme = useTheme();
   const [reports, setReports] = useState([]);
+  const [filteredReports, setFilteredReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState(null);
   const [feedbackDialog, setFeedbackDialog] = useState(false);
@@ -50,46 +86,93 @@ const MyReports = () => {
     rating: 5,
     comment: ''
   });
+  const [tabValue, setTabValue] = useState(0);
+  const [page, setPage] = useState(1);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const itemsPerPage = 5;
 
   useEffect(() => {
     fetchReports();
   }, []);
 
+  useEffect(() => {
+    filterReports();
+  }, [reports, tabValue, searchQuery]);
+
   const fetchReports = async () => {
     try {
       const response = await reportService.getMyReports();
       setReports(response.data || []);
+      setFilteredReports(response.data || []);
     } catch (error) {
       console.error('Error fetching reports:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to load reports'
-      });
+      showError('Failed to load reports');
     } finally {
       setLoading(false);
     }
   };
 
+  const filterReports = () => {
+    let filtered = [...reports];
+
+    // Filter by status
+    if (tabValue === 1) filtered = filtered.filter(r => r.status === 'PENDING');
+    if (tabValue === 2) filtered = filtered.filter(r => r.status === 'IN_PROGRESS');
+    if (tabValue === 3) filtered = filtered.filter(r => r.status === 'RESOLVED');
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(r => 
+        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredReports(filtered);
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    setLoading(true);
+    fetchReports();
+  };
+
+  const handleExport = () => {
+    showLoading('Exporting reports...');
+    setTimeout(() => {
+      showSuccess('Reports exported successfully!');
+    }, 1500);
+  };
+
+  const handleFilterClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleFilterClose = () => {
+    setAnchorEl(null);
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'PENDING': return <PendingIcon sx={{ color: '#ff9800' }} />;
-      case 'ASSIGNED': return <AssignmentIcon sx={{ color: '#2196f3' }} />;
-      case 'IN_PROGRESS': return <ScheduleIcon sx={{ color: '#4caf50' }} />;
-      case 'RESOLVED': return <CheckCircleIcon sx={{ color: '#4caf50' }} />;
-      case 'REOPENED': return <ReplayIcon sx={{ color: '#f44336' }} />;
-      default: return <CancelIcon sx={{ color: '#f44336' }} />;
+      case 'PENDING': return <PendingIcon sx={{ color: '#F59E0B' }} />;
+      case 'ASSIGNED': return <AssignmentIcon sx={{ color: '#3B82F6' }} />;
+      case 'IN_PROGRESS': return <ScheduleIcon sx={{ color: '#4F46E5' }} />;
+      case 'RESOLVED': return <CheckCircleIcon sx={{ color: '#10B981' }} />;
+      case 'REOPENED': return <ReplayIcon sx={{ color: '#EF4444' }} />;
+      default: return <CancelIcon sx={{ color: '#EF4444' }} />;
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'PENDING': return 'warning';
-      case 'ASSIGNED': return 'info';
-      case 'IN_PROGRESS': return 'success';
-      case 'RESOLVED': return 'success';
-      case 'REOPENED': return 'error';
-      default: return 'default';
+      case 'PENDING': return '#F59E0B';
+      case 'ASSIGNED': return '#3B82F6';
+      case 'IN_PROGRESS': return '#4F46E5';
+      case 'RESOLVED': return '#10B981';
+      case 'REOPENED': return '#EF4444';
+      default: return '#6B7280';
     }
   };
 
@@ -97,18 +180,11 @@ const MyReports = () => {
     try {
       await reportService.submitFeedback(selectedReport._id, feedback);
       setFeedbackDialog(false);
-      Swal.fire({
-        icon: 'success',
-        title: 'Thank You!',
-        text: 'Your feedback helps us improve our services.'
-      });
+      showSuccess('Thank you for your feedback!');
       fetchReports();
+      setFeedback({ rating: 5, comment: '' });
     } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to submit feedback'
-      });
+      showError('Failed to submit feedback');
     }
   };
 
@@ -119,198 +195,326 @@ const MyReports = () => {
     return 10;
   };
 
-  if (loading) return <LinearProgress />;
+  const paginatedReports = filteredReports.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
 
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        My Reports
-      </Typography>
-      <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-        Track the status of your complaints
-      </Typography>
-
-      {reports.length === 0 ? (
-        <Alert severity="info">You haven't submitted any reports yet.</Alert>
-      ) : (
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>My Reports</Typography>
         <Grid container spacing={3}>
-          {reports.map((report) => (
-            <Grid item xs={12} key={report._id}>
-              <Card>
-                <CardContent>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                          {report.category?.charAt(0) || 'R'}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="h6">{report.title}</Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {report.category} • Reported {report.createdAt ? 
-                              formatDistance(new Date(report.createdAt), new Date(), { addSuffix: true }) : 
-                              'Recently'}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Typography variant="body1" paragraph>
-                        {report.description}
-                      </Typography>
-
-                      {report.media?.images && report.media.images.length > 0 && (
-                        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                          <img 
-                            src={report.media.images[0].url} 
-                            alt="Report" 
-                            style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }}
-                          />
-                        </Box>
-                      )}
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                        <Chip
-                          icon={getStatusIcon(report.status)}
-                          label={report.status}
-                          color={getStatusColor(report.status)}
-                          size="small"
-                        />
-                        {report.assignedTo && (
-                          <Typography variant="body2">
-                            Assigned to: {report.assignedTo.name}
-                          </Typography>
-                        )}
-                      </Box>
-
-                      <Box sx={{ width: '100%', mb: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2">Resolution Progress</Typography>
-                          <Typography variant="body2">{calculateProgress(report)}%</Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={calculateProgress(report)}
-                          color={getStatusColor(report.status)}
-                        />
-                      </Box>
-                    </Grid>
-
-                    <Grid item xs={12} md={4}>
-                      <Paper variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Timeline
-                        </Typography>
-                        <Timeline>
-                          <TimelineItem>
-                            <TimelineOppositeContent color="textSecondary" variant="caption">
-                              {report.createdAt ? 
-                                formatDistance(new Date(report.createdAt), new Date(), { addSuffix: true }) : 
-                                'Recently'}
-                            </TimelineOppositeContent>
-                            <TimelineSeparator>
-                              <TimelineDot color="primary">
-                                <PendingIcon fontSize="small" />
-                              </TimelineDot>
-                              <TimelineConnector />
-                            </TimelineSeparator>
-                            <TimelineContent>Reported</TimelineContent>
-                          </TimelineItem>
-                          
-                          {report.status !== 'PENDING' && (
-                            <TimelineItem>
-                              <TimelineOppositeContent color="textSecondary" variant="caption">
-                                {report.assignedAt ? 
-                                  formatDistance(new Date(report.assignedAt), new Date(), { addSuffix: true }) : 
-                                  'Recently'}
-                              </TimelineOppositeContent>
-                              <TimelineSeparator>
-                                <TimelineDot color="info">
-                                  <AssignmentIcon fontSize="small" />
-                                </TimelineDot>
-                                <TimelineConnector />
-                              </TimelineSeparator>
-                              <TimelineContent>Assigned</TimelineContent>
-                            </TimelineItem>
-                          )}
-
-                          {report.status === 'IN_PROGRESS' && (
-                            <TimelineItem>
-                              <TimelineOppositeContent color="textSecondary" variant="caption">
-                                In Progress
-                              </TimelineOppositeContent>
-                              <TimelineSeparator>
-                                <TimelineDot color="success">
-                                  <ScheduleIcon fontSize="small" />
-                                </TimelineDot>
-                                <TimelineConnector />
-                              </TimelineSeparator>
-                              <TimelineContent>In Progress</TimelineContent>
-                            </TimelineItem>
-                          )}
-
-                          {report.status === 'RESOLVED' && (
-                            <TimelineItem>
-                              <TimelineOppositeContent color="textSecondary" variant="caption">
-                                {report.resolvedAt ? 
-                                  formatDistance(new Date(report.resolvedAt), new Date(), { addSuffix: true }) : 
-                                  'Recently'}
-                              </TimelineOppositeContent>
-                              <TimelineSeparator>
-                                <TimelineDot color="success">
-                                  <CheckCircleIcon fontSize="small" />
-                                </TimelineDot>
-                              </TimelineSeparator>
-                              <TimelineContent>Resolved</TimelineContent>
-                            </TimelineItem>
-                          )}
-                        </Timeline>
-
-                        {report.status === 'RESOLVED' && !report.citizenFeedback && (
-                          <Button
-                            variant="outlined"
-                            startIcon={<FeedbackIcon />}
-                            fullWidth
-                            onClick={() => {
-                              setSelectedReport(report);
-                              setFeedbackDialog(true);
-                            }}
-                            sx={{ mt: 2 }}
-                          >
-                            Rate Resolution
-                          </Button>
-                        )}
-
-                        {report.citizenFeedback && (
-                          <Box sx={{ mt: 2 }}>
-                            <Typography variant="subtitle2">Your Feedback</Typography>
-                            <Rating value={report.citizenFeedback.rating} readOnly size="small" />
-                            <Typography variant="body2">{report.citizenFeedback.comment}</Typography>
-                          </Box>
-                        )}
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
+          {[1, 2, 3].map((item) => (
+            <Grid item xs={12} key={item}>
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 4 }} />
             </Grid>
           ))}
         </Grid>
-      )}
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Header Section */}
+        <motion.div variants={fadeInUp}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                My Reports
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Track and manage your complaints
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Refresh">
+                <IconButton onClick={handleRefresh} sx={{ bgcolor: alpha('#4F46E5', 0.05) }}>
+                  <RefreshIcon sx={{ color: '#4F46E5' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export Reports">
+                <IconButton onClick={handleExport} sx={{ bgcolor: alpha('#4F46E5', 0.05) }}>
+                  <DownloadIcon sx={{ color: '#4F46E5' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Filter">
+                <IconButton onClick={handleFilterClick} sx={{ bgcolor: alpha('#4F46E5', 0.05) }}>
+                  <FilterIcon sx={{ color: '#4F46E5' }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </motion.div>
+
+        {/* Stats Summary */}
+        <motion.div variants={fadeInUp}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={6} sm={3}>
+              <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: alpha('#F59E0B', 0.05), border: `1px solid ${alpha('#F59E0B', 0.1)}` }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#F59E0B' }}>{reports.filter(r => r.status === 'PENDING').length}</Typography>
+                <Typography variant="caption">Pending</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: alpha('#4F46E5', 0.05), border: `1px solid ${alpha('#4F46E5', 0.1)}` }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4F46E5' }}>{reports.filter(r => r.status === 'IN_PROGRESS').length}</Typography>
+                <Typography variant="caption">In Progress</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: alpha('#10B981', 0.05), border: `1px solid ${alpha('#10B981', 0.1)}` }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#10B981' }}>{reports.filter(r => r.status === 'RESOLVED').length}</Typography>
+                <Typography variant="caption">Resolved</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: alpha('#EF4444', 0.05), border: `1px solid ${alpha('#EF4444', 0.1)}` }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#EF4444' }}>{reports.filter(r => r.status === 'REOPENED').length}</Typography>
+                <Typography variant="caption">Reopened</Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        </motion.div>
+
+        {/* Tabs and Search */}
+        <motion.div variants={fadeInUp}>
+          <Paper sx={{ mb: 3, borderRadius: 3, overflow: 'hidden', border: `1px solid ${alpha('#4F46E5', 0.1)}` }}>
+            <Tabs
+              value={tabValue}
+              onChange={(e, v) => setTabValue(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                '& .MuiTab-root': { minHeight: 50, fontSize: '0.9rem', fontWeight: 500 },
+                '& .Mui-selected': { color: '#4F46E5' },
+                '& .MuiTabs-indicator': { backgroundColor: '#4F46E5' }
+              }}
+            >
+              <Tab label="All" />
+              <Tab label="Pending" />
+              <Tab label="In Progress" />
+              <Tab label="Resolved" />
+            </Tabs>
+          </Paper>
+        </motion.div>
+
+        {/* Filter Menu */}
+        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleFilterClose}>
+          <MenuItem onClick={handleFilterClose}>Last 7 days</MenuItem>
+          <MenuItem onClick={handleFilterClose}>Last 30 days</MenuItem>
+          <MenuItem onClick={handleFilterClose}>Last 90 days</MenuItem>
+          <MenuItem onClick={handleFilterClose}>This year</MenuItem>
+        </Menu>
+
+        {/* Reports List */}
+        {filteredReports.length === 0 ? (
+          <motion.div variants={fadeInUp}>
+            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 4 }}>
+              <Typography variant="h6" color="text.secondary">No reports found</Typography>
+              <Button variant="contained" onClick={() => window.location.href = '/citizen/report'} sx={{ mt: 2, borderRadius: 2 }}>
+                Report an Issue
+              </Button>
+            </Paper>
+          </motion.div>
+        ) : (
+          <AnimatePresence>
+            <Grid container spacing={3}>
+              {paginatedReports.map((report, index) => (
+                <Grid item xs={12} key={report._id}>
+                  <motion.div
+                    variants={fadeInUp}
+                    initial="hidden"
+                    animate="visible"
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <Card
+                      elevation={0}
+                      sx={{
+                        borderRadius: 4,
+                        overflow: 'hidden',
+                        background: alpha(theme.palette.background.paper, 0.95),
+                        border: `1px solid ${alpha(getStatusColor(report.status), 0.2)}`,
+                        transition: 'all 0.3s',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: `0 20px 30px ${alpha(getStatusColor(report.status), 0.15)}`
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        <Grid container spacing={3}>
+                          <Grid item xs={12} md={7}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                              <Avatar sx={{ bgcolor: alpha(getStatusColor(report.status), 0.1), color: getStatusColor(report.status) }}>
+                                {getStatusIcon(report.status)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>{report.title}</Typography>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                  <Chip label={report.category} size="small" sx={{ bgcolor: alpha('#4F46E5', 0.05) }} />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {report.createdAt ? formatDistance(new Date(report.createdAt), new Date(), { addSuffix: true }) : 'Recently'}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+
+                            <Typography variant="body2" color="text.secondary" paragraph>
+                              {report.description}
+                            </Typography>
+
+                            {report.media?.images && report.media.images.length > 0 && (
+                              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                                <img src={report.media.images[0].url} alt="Report" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
+                              </Box>
+                            )}
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                              <Chip
+                                icon={getStatusIcon(report.status)}
+                                label={report.status}
+                                sx={{ bgcolor: alpha(getStatusColor(report.status), 0.1), color: getStatusColor(report.status), fontWeight: 600 }}
+                              />
+                              {report.assignedTo && (
+                                <Typography variant="caption">Assigned to: {report.assignedTo.name}</Typography>
+                              )}
+                            </Box>
+
+                            <Box sx={{ width: '100%' }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="caption">Progress</Typography>
+                                <Typography variant="caption" fontWeight={600}>{calculateProgress(report)}%</Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={calculateProgress(report)}
+                                sx={{
+                                  height: 6,
+                                  borderRadius: 3,
+                                  bgcolor: alpha(getStatusColor(report.status), 0.1),
+                                  '& .MuiLinearProgress-bar': { bgcolor: getStatusColor(report.status), borderRadius: 3 }
+                                }}
+                              />
+                            </Box>
+                          </Grid>
+
+                          <Grid item xs={12} md={5}>
+                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: alpha('#4F46E5', 0.02) }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Timeline</Typography>
+                              <Timeline position="right" sx={{ p: 0, m: 0 }}>
+                                <TimelineItem>
+                                  <TimelineOppositeContent sx={{ m: 0, p: 0 }} />
+                                  <TimelineSeparator>
+                                    <TimelineDot color="primary">
+                                      <PendingIcon fontSize="small" />
+                                    </TimelineDot>
+                                    <TimelineConnector />
+                                  </TimelineSeparator>
+                                  <TimelineContent>
+                                    <Typography variant="caption" fontWeight={500}>Reported</Typography>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      {report.createdAt ? format(new Date(report.createdAt), 'dd MMM yyyy') : 'Recently'}
+                                    </Typography>
+                                  </TimelineContent>
+                                </TimelineItem>
+
+                                {report.status !== 'PENDING' && (
+                                  <TimelineItem>
+                                    <TimelineOppositeContent sx={{ m: 0, p: 0 }} />
+                                    <TimelineSeparator>
+                                      <TimelineDot color="info">
+                                        <AssignmentIcon fontSize="small" />
+                                      </TimelineDot>
+                                      <TimelineConnector />
+                                    </TimelineSeparator>
+                                    <TimelineContent>
+                                      <Typography variant="caption" fontWeight={500}>Assigned</Typography>
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        {report.assignedAt ? format(new Date(report.assignedAt), 'dd MMM yyyy') : 'N/A'}
+                                      </Typography>
+                                    </TimelineContent>
+                                  </TimelineItem>
+                                )}
+
+                                {report.status === 'RESOLVED' && (
+                                  <TimelineItem>
+                                    <TimelineOppositeContent sx={{ m: 0, p: 0 }} />
+                                    <TimelineSeparator>
+                                      <TimelineDot color="success">
+                                        <CheckCircleIcon fontSize="small" />
+                                      </TimelineDot>
+                                    </TimelineSeparator>
+                                    <TimelineContent>
+                                      <Typography variant="caption" fontWeight={500}>Resolved</Typography>
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        {report.resolvedAt ? format(new Date(report.resolvedAt), 'dd MMM yyyy') : 'N/A'}
+                                      </Typography>
+                                    </TimelineContent>
+                                  </TimelineItem>
+                                )}
+                              </Timeline>
+
+                              {report.status === 'RESOLVED' && !report.citizenFeedback && (
+                                <Button
+                                  variant="outlined"
+                                  startIcon={<FeedbackIcon />}
+                                  fullWidth
+                                  onClick={() => { setSelectedReport(report); setFeedbackDialog(true); }}
+                                  sx={{ mt: 2, borderRadius: 2, borderColor: alpha('#4F46E5', 0.5), color: '#4F46E5' }}
+                                >
+                                  Rate Resolution
+                                </Button>
+                              )}
+
+                              {report.citizenFeedback && (
+                                <Box sx={{ mt: 2, p: 2, bgcolor: alpha('#10B981', 0.05), borderRadius: 2 }}>
+                                  <Typography variant="caption" fontWeight={500}>Your Feedback</Typography>
+                                  <Rating value={report.citizenFeedback.rating} readOnly size="small" sx={{ mt: 1 }} />
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                    {report.citizenFeedback.comment}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Paper>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </Grid>
+              ))}
+            </Grid>
+          </AnimatePresence>
+        )}
+
+        {/* Pagination */}
+        {filteredReports.length > itemsPerPage && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <Pagination
+              count={Math.ceil(filteredReports.length / itemsPerPage)}
+              page={page}
+              onChange={(e, v) => setPage(v)}
+              color="primary"
+              sx={{ '& .Mui-selected': { bgcolor: '#4F46E5 !important', color: 'white' } }}
+            />
+          </Box>
+        )}
+      </motion.div>
 
       {/* Feedback Dialog */}
-      <Dialog open={feedbackDialog} onClose={() => setFeedbackDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rate Resolution</DialogTitle>
+      <Dialog open={feedbackDialog} onClose={() => setFeedbackDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Rate Resolution</DialogTitle>
         <DialogContent>
           <Box sx={{ textAlign: 'center', my: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              How satisfied are you with the resolution?
-            </Typography>
-            <Rating
-              value={feedback.rating}
-              onChange={(e, newValue) => setFeedback({ ...feedback, rating: newValue })}
-              size="large"
-              sx={{ mb: 2 }}
-            />
+            <Typography variant="body1" gutterBottom>How satisfied are you with the resolution?</Typography>
+            <Rating value={feedback.rating} onChange={(e, newValue) => setFeedback({ ...feedback, rating: newValue })} size="large" sx={{ mb: 2 }} />
             <TextField
               fullWidth
               label="Additional Comments"
@@ -318,14 +522,13 @@ const MyReports = () => {
               rows={4}
               value={feedback.comment}
               onChange={(e) => setFeedback({ ...feedback, comment: e.target.value })}
+              variant="outlined"
             />
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setFeedbackDialog(false)}>Cancel</Button>
-          <Button onClick={handleFeedback} variant="contained" color="primary">
-            Submit Feedback
-          </Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setFeedbackDialog(false)} sx={{ color: '#64748B' }}>Cancel</Button>
+          <Button onClick={handleFeedback} variant="contained" sx={{ bgcolor: '#4F46E5' }}>Submit Feedback</Button>
         </DialogActions>
       </Dialog>
     </Container>

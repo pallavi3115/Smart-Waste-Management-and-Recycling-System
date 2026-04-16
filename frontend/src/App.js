@@ -1,3 +1,4 @@
+// App.js - Completely Fixed Version
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline } from '@mui/material';
@@ -65,7 +66,7 @@ const AppContent = () => {
   }
 
   return (
-    <Router>
+    <>
       <Routes>
         {/* ==================== PUBLIC ROUTES ==================== */}
         <Route path="/" element={<LandingPage />} />
@@ -91,32 +92,34 @@ const AppContent = () => {
           path="/notifications"
           element={
             <PrivateRoute>
-              <Layout>
-                <NotificationsPage />
-              </Layout>
+              <Layout />
             </PrivateRoute>
           }
-        />
+        >
+          <Route index element={<NotificationsPage />} />
+        </Route>
+
         <Route
           path="/settings"
           element={
             <PrivateRoute>
-              <Layout>
-                <SettingsPage />
-              </Layout>
+              <Layout />
             </PrivateRoute>
           }
-        />
+        >
+          <Route index element={<SettingsPage />} />
+        </Route>
+
         <Route
           path="/help"
           element={
             <PrivateRoute>
-              <Layout>
-                <HelpPage />
-              </Layout>
+              <Layout />
             </PrivateRoute>
           }
-        />
+        >
+          <Route index element={<HelpPage />} />
+        </Route>
 
         {/* ==================== CITIZEN ROUTES ==================== */}
         <Route
@@ -164,24 +167,13 @@ const AppContent = () => {
             </PrivateRoute>
           }
         >
-          {/* Main Dashboard */}
           <Route index element={<DriverDashboard />} />
-          
-          {/* Route Management */}
           <Route path="routes" element={<AssignedRoutes />} />
           <Route path="routes/:id" element={<RouteDetails />} />
-          
-          {/* Collection & Proof */}
           <Route path="collection" element={<CollectionProof />} />
-          
-          {/* Attendance */}
           <Route path="attendance" element={<Attendance />} />
-          
-          {/* Earnings & Performance */}
           <Route path="earnings" element={<DriverEarnings />} />
           <Route path="performance" element={<DriverPerformance />} />
-          
-          {/* Profile & Notifications */}
           <Route path="profile" element={<DriverProfile />} />
           <Route path="notifications" element={<DriverNotifications />} />
         </Route>
@@ -189,16 +181,13 @@ const AppContent = () => {
         {/* ==================== FALLBACK ROUTE ==================== */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-
+      
       {/* ==================== TOAST NOTIFICATIONS ==================== */}
       <Toaster
         position="top-right"
         reverseOrder={false}
         gutter={8}
-        containerClassName=""
-        containerStyle={{}}
         toastOptions={{
-          className: '',
           duration: 4000,
           style: {
             background: '#363636',
@@ -207,7 +196,6 @@ const AppContent = () => {
             borderRadius: '8px',
             fontSize: '14px',
             fontWeight: 500,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           },
           success: {
             duration: 3000,
@@ -225,19 +213,12 @@ const AppContent = () => {
               color: '#fff',
             },
           },
-          loading: {
-            duration: Infinity,
-            style: {
-              background: '#3b82f6',
-              color: '#fff',
-            },
-          },
         }}
       />
-
+      
       {/* ==================== CHATBOT ==================== */}
       {user && <Chatbot />}
-    </Router>
+    </>
   );
 };
 
@@ -249,7 +230,9 @@ const App = () => {
         <AuthProvider>
           <SocketProvider>
             <CssBaseline />
-            <AppContent />
+            <Router>
+              <AppContent />
+            </Router>
           </SocketProvider>
         </AuthProvider>
       </CustomThemeProvider>
