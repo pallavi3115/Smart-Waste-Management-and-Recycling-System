@@ -227,7 +227,7 @@ const LandingPage = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={() => scrollToSection('hero')}>
               <Recycling sx={{ color: 'primary.main', fontSize: 32 }} />
               <Typography variant="h6" sx={{ fontWeight: 800, background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                SmartWaste
+                WasteSync
               </Typography>
             </Box>
           </motion.div>
