@@ -3,29 +3,19 @@ const {
   registerBin,
   updateBinStatus,
   getAllBins,
-  getBinById,        // Make sure this matches the exported function name
-  getBinStatus,      // If you have this function
-  getBinsByArea,     // If you have this function
-  recordCollection,
+  getBinById,
   getBinStats
 } = require('../controllers/binController');
-const { protect, authorize } = require('../middleware/Auth');
 
 const router = express.Router();
 
-// Public routes
-router.get('/all', getAllBins);
-router.get('/status/:id', getBinById); // or getBinStatus - use the correct one
-router.post('/update', updateBinStatus);
+// 🌍 PUBLIC ROUTES
+router.get('/all', getAllBins);            // सभी bins
+router.get('/:id', getBinById);            // single bin (⚠️ change किया)
+router.post('/update', updateBinStatus);   // IoT updates
 
-// Protected routes
-router.post('/register', protect, authorize('Admin'), registerBin);
-router.post('/collect', protect, authorize('Driver'), recordCollection);
-router.get('/stats', protect, authorize('Admin'), getBinStats);
-
-// Optional: if you have these routes
-if (getBinsByArea) {
-  router.get('/area/:area', getBinsByArea);
-}
+// 🔐 ADMIN ROUTES
+router.post('/register', registerBin);     // add new bin
+router.get('/stats', getBinStats);         // analytics
 
 module.exports = router;

@@ -9,7 +9,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
-// Import routes
+// ================= ROUTES =================
 const authRoutes = require('./routes/auth');
 const binRoutes = require('./routes/bins');
 const recyclingRoutes = require('./routes/recycling');
@@ -22,13 +22,19 @@ const mapRoutes = require('./routes/map');
 const notificationRoutes = require('./routes/notifications');
 const userRoutes = require('./routes/users');
 
-// Driver routes
+const analyticsRoutes = require('./routes/analytics');
+const staffRoutes = require('./routes/staffRoutes');
+const auditRoutes = require('./routes/audit'); // ✅ AUDIT LOG ADDED
+
 const driverRoutes = require('./routes/driver');
 const driverRouteRoutes = require('./routes/routes');
 const attendanceRoutes = require('./routes/attendance');
 
+// ================= APP =================
 const app = express();
 const httpServer = createServer(app);
+
+// ================= SOCKET =================
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -37,277 +43,124 @@ const io = new Server(httpServer, {
   }
 });
 
-// Make io accessible to routes
 app.set('io', io);
 
-// ===== DATABASE CONNECTION =====
+// ================= DB =================
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error('❌ MongoDB error:', error);
     process.exit(1);
   }
 };
 
-// Connect to database
-if (process.env.MONGODB_URI) {
-  connectDB();
-} else {
-  console.warn('⚠️  MONGODB_URI not found. Please set it in .env file');
-}
+if (process.env.MONGODB_URI) connectDB();
+else console.warn('⚠️ MONGODB_URI missing');
 
-// ===== MIDDLEWARE =====
-
-// Security middleware
+// ================= MIDDLEWARE =================
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: { success: false, message: 'Too many requests from this IP, please try again later.' }
-});
-app.use('/api/', limiter);
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+}));
 
-// Compression
 app.use(compression());
-
-// Logging
 app.use(morgan('dev'));
 
-// Body parser
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static files
 app.use('/uploads', express.static('uploads'));
 
-// Request logger
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// ===== HEALTH CHECK ROUTES =====
-
-// Basic health check
+// ================= HEALTH =================
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    database: process.env.MONGODB_URI ? 'Connected' : 'Disconnected'
-  });
+  res.json({ success: true, message: 'Server running 🚀' });
 });
 
-// API Health check
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    success: true, 
-    message: '🚀 Smart Waste Management API is running!',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    database: process.env.MONGODB_URI ? 'Connected' : 'Disconnected'
-  });
-});
-
-// ===== API ROUTES =====
-
-// Auth routes
+// ================= ROUTES =================
 app.use('/api/auth', authRoutes);
-
-// Bin routes
 app.use('/api/bins', binRoutes);
-
-// Recycling routes
 app.use('/api/recycling', recyclingRoutes);
-
-// Report routes
 app.use('/api/reports', reportRoutes);
-
-// Reward routes
 app.use('/api/rewards', rewardRoutes);
-
-// Admin routes
 app.use('/api/admin', adminRoutes);
-
-// AI routes
 app.use('/api/ai', aiRoutes);
-
-// QR routes
 app.use('/api/qr', qrRoutes);
-
-// Map routes
 app.use('/api/map', mapRoutes);
-
-// Notification routes
 app.use('/api/notifications', notificationRoutes);
-
-// User routes
 app.use('/api/users', userRoutes);
 
-// Driver routes (with error handling to prevent crashes if files don't exist)
+app.use('/api/users/staff', staffRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/audit-logs', auditRoutes); // ✅ FINAL AUDIT ROUTE
+
+// DRIVER ROUTES
 try {
   app.use('/api/driver', driverRoutes);
   app.use('/api/driver/routes', driverRouteRoutes);
   app.use('/api/driver/attendance', attendanceRoutes);
-  console.log('✅ Driver routes loaded successfully');
-} catch (error) {
-  console.warn('⚠️ Driver routes could not be loaded:', error.message);
-  // Create fallback routes to prevent crashes
-  app.use('/api/driver', (req, res) => {
-    res.status(200).json({ success: true, message: 'Driver API - Coming soon' });
-  });
+} catch (err) {
+  console.warn('Driver routes error:', err.message);
 }
 
-// ===== ROOT ROUTE =====
+// ================= ROOT =================
 app.get('/', (req, res) => {
   res.json({
-    message: '🎯 Smart Waste Management API',
-    version: '1.0.0',
-    status: 'running',
-    database: process.env.MONGODB_URI ? 'Connected' : 'Disconnected',
-    documentation: 'API endpoints are available under /api/*',
-    endpoints: [
-      'GET  /health',
-      'GET  /api/health',
-      'POST /api/auth/register',
-      'POST /api/auth/login',
-      'GET  /api/auth/me',
-      'GET  /api/bins',
-      'POST /api/bins',
-      'GET  /api/reports',
-      'POST /api/reports',
-      'GET  /api/recycling/centers',
-      'GET  /api/admin/dashboard',
-      'GET  /api/driver/dashboard',
-      'GET  /api/driver/routes',
-      'POST /api/driver/attendance/check-in',
-      'POST /api/driver/attendance/check-out'
-    ]
+    message: 'Smart Waste Management API',
+    status: 'running'
   });
 });
 
-// ===== 404 HANDLER =====
+// ================= 404 =================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.method} ${req.originalUrl} not found`
+    message: `Route not found: ${req.method} ${req.originalUrl}`
   });
 });
 
-// ===== ERROR HANDLING MIDDLEWARE =====
+// ================= ERROR =================
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(err.status || 500).json({
+  console.error(err);
+  res.status(500).json({
     success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: err.message
   });
 });
 
-// ===== SOCKET.IO SETUP =====
-// Setup socket.io for real-time driver location tracking
+// ================= SOCKET =================
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-  
+  console.log('Client connected:', socket.id);
+
   socket.on('driver-location', (data) => {
-    // Broadcast driver location to admins
     socket.broadcast.emit('driver-location-update', data);
   });
-  
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
 });
 
-// ===== START SERVER =====
+// ================= START SERVER =================
 const PORT = process.env.PORT || 5000;
 
 httpServer.listen(PORT, () => {
-  console.log('\n' + '='.repeat(60));
-  console.log('🚀 SMART WASTE MANAGEMENT API');
-  console.log('='.repeat(60));
-  console.log(`📡 Server: http://localhost:${PORT}`);
-  console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🗄️  Database: ${process.env.MONGODB_URI ? 'Connected' : 'Disconnected'}`);
-  console.log('='.repeat(60));
-  console.log('📚 AVAILABLE ROUTES:');
-  console.log('   • GET  /                    - API information');
-  console.log('   • GET  /health               - Health check');
-  console.log('   • GET  /api/health           - API health check');
-  console.log('   • POST /api/auth/register    - User registration');
-  console.log('   • POST /api/auth/login       - User login');
-  console.log('   • GET  /api/auth/me          - Get current user');
-  console.log('   • GET  /api/bins             - Get all bins');
-  console.log('   • POST /api/bins             - Create new bin');
-  console.log('   • GET  /api/reports          - Get reports');
-  console.log('   • POST /api/reports          - Create report');
-  console.log('   • GET  /api/recycling/centers - Get recycling centers');
-  console.log('   • GET  /api/admin/dashboard  - Admin dashboard');
-  console.log('   • GET  /api/driver/dashboard - Driver dashboard');
-  console.log('   • GET  /api/driver/routes    - Driver routes');
-  console.log('   • POST /api/driver/attendance/check-in - Driver check-in');
-  console.log('   • POST /api/driver/attendance/check-out - Driver check-out');
-  console.log('='.repeat(60));
-  console.log('👥 USER ROLES:');
-  console.log('   • Admin  → /admin/dashboard');
-  console.log('   • Citizen → /citizen/dashboard');
-  console.log('   • Driver → /driver/dashboard');
-  console.log('='.repeat(60));
-  console.log('🔐 TEST CREDENTIALS:');
-  console.log('   • Admin:  admin@test.com / 123456');
-  console.log('   • Citizen: citizen@test.com / 123456');
-  console.log('   • Driver:  driver@test.com / 123456');
-  console.log('='.repeat(60));
-  console.log('⚡ Server is ready to accept requests');
-  console.log('='.repeat(60) + '\n');
-});
-
-// ===== GRACEFUL SHUTDOWN =====
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Closing HTTP server...');
-  httpServer.close(() => {
-    console.log('HTTP server closed.');
-    if (mongoose.connection) {
-      mongoose.connection.close(false, () => {
-        console.log('MongoDB connection closed.');
-        process.exit(0);
-      });
-    } else {
-      process.exit(0);
-    }
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Closing HTTP server...');
-  httpServer.close(() => {
-    console.log('HTTP server closed.');
-    if (mongoose.connection) {
-      mongoose.connection.close(false, () => {
-        console.log('MongoDB connection closed.');
-        process.exit(0);
-      });
-    } else {
-      process.exit(0);
-    }
-  });
+  console.log(`Server running on http://localhost:${PORT}`);
 });
 
 module.exports = app;

@@ -1,8 +1,6 @@
 const Report = require('../models/Report');
 
-// @desc    Create new report
-// @route   POST /api/reports
-// @access  Private
+// ================= CREATE REPORT =================
 exports.createReport = async (req, res) => {
   try {
     const {
@@ -14,15 +12,13 @@ exports.createReport = async (req, res) => {
       media
     } = req.body;
 
-    // Validate required fields
     if (!title || !description || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide title, description and category'
+        message: 'Title, Description aur Category required hai'
       });
     }
 
-    // Ensure user exists
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
@@ -30,9 +26,8 @@ exports.createReport = async (req, res) => {
       });
     }
 
-    // Create report with proper user ID
-    const reportData = {
-      user: req.user.id, // This should now be a valid ObjectId string
+    const report = await Report.create({
+      user: req.user.id,
       title,
       description,
       category,
@@ -40,82 +35,74 @@ exports.createReport = async (req, res) => {
       media: media || {},
       isAnonymous: isAnonymous || false,
       status: 'PENDING'
-    };
-
-    const report = await Report.create(reportData);
+    });
 
     res.status(201).json({
       success: true,
       data: report,
-      message: 'Report created successfully'
+      message: 'Report created successfully ✅'
     });
+
   } catch (error) {
-    console.error('Error creating report:', error);
-    
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: messages.join(', ')
-      });
-    }
+    console.error('Create Report Error:', error);
 
-    res.status(400).json({
-      success: false,
-      message: error.message || 'Failed to create report'
-    });
-  }
-};
-
-// @desc    Get user's reports
-// @route   GET /api/reports/my-reports
-// @access  Private
-exports.getMyReports = async (req, res) => {
-  try {
-    const reports = await Report.find({ user: req.user.id })
-      .sort('-createdAt');
-
-    res.json({
-      success: true,
-      count: reports.length,
-      data: reports
-    });
-  } catch (error) {
-    console.error('Error fetching reports:', error);
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message
     });
   }
 };
 
-// @desc    Get all reports (Admin)
-// @route   GET /api/reports
-// @access  Private/Admin
+
+// ================= GET MY REPORTS =================
+exports.getMyReports = async (req, res) => {
+  try {
+    const reports = await Report.find({ user: req.user.id })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: reports.length,
+      data: reports
+    });
+
+  } catch (error) {
+    console.error('My Reports Error:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
+// ================= GET ALL REPORTS (ADMIN) =================
 exports.getReports = async (req, res) => {
   try {
     const reports = await Report.find()
       .populate('user', 'name email')
-      .sort('-createdAt');
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
       count: reports.length,
       data: reports
     });
+
   } catch (error) {
-    console.error('Error fetching reports:', error);
-    res.status(400).json({
+    console.error('All Reports Error:', error);
+
+    res.status(500).json({
       success: false,
       message: error.message
     });
   }
 };
 
-// @desc    Get single report
-// @route   GET /api/reports/:id
-// @access  Private
+
+// ================= GET SINGLE REPORT =================
 exports.getReportById = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id)
@@ -129,11 +116,14 @@ exports.getReportById = async (req, res) => {
       });
     }
 
-    // Check if user owns the report or is admin
-    if (report.user._id.toString() !== req.user.id && req.user.role !== 'Admin') {
+    // Owner ya Admin hi dekh sakta hai
+    if (
+      report.user._id.toString() !== req.user.id &&
+      req.user.role !== 'Admin'
+    ) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to view this report'
+        message: 'Not authorized'
       });
     }
 
@@ -141,18 +131,19 @@ exports.getReportById = async (req, res) => {
       success: true,
       data: report
     });
+
   } catch (error) {
-    console.error('Error fetching report:', error);
-    res.status(400).json({
+    console.error('Single Report Error:', error);
+
+    res.status(500).json({
       success: false,
       message: error.message
     });
   }
 };
 
-// @desc    Update report status
-// @route   PUT /api/reports/:id/status
-// @access  Private/Admin
+
+// ================= UPDATE STATUS =================
 exports.updateReportStatus = async (req, res) => {
   try {
     const { status, assignedTo } = req.body;
@@ -166,19 +157,54 @@ exports.updateReportStatus = async (req, res) => {
       });
     }
 
-    report.status = status || report.status;
+    if (status) report.status = status;
     if (assignedTo) report.assignedTo = assignedTo;
-    if (status === 'RESOLVED') report.resolvedAt = new Date();
+
+    if (status === 'RESOLVED') {
+      report.resolvedAt = new Date();
+    }
 
     await report.save();
 
     res.json({
       success: true,
-      data: report
+      data: report,
+      message: 'Report updated successfully ✅'
     });
+
   } catch (error) {
-    console.error('Error updating report:', error);
-    res.status(400).json({
+    console.error('Update Error:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
+// ================= REPORT SUMMARY =================
+exports.getReportsSummary = async (req, res) => {
+  try {
+    const total = await Report.countDocuments();
+    const pending = await Report.countDocuments({ status: "PENDING" });
+    const inProgress = await Report.countDocuments({ status: "IN_PROGRESS" });
+    const resolved = await Report.countDocuments({ status: "RESOLVED" });
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        pending,
+        inProgress,
+        resolved
+      }
+    });
+
+  } catch (error) {
+    console.error('Summary Error:', error);
+
+    res.status(500).json({
       success: false,
       message: error.message
     });

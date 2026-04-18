@@ -1,26 +1,44 @@
-const Bin = require('../models/Bin');
-const CollectionLog = require('../models/CollectionLog');
-const Notification = require('../models/Notification');
+const Bin = require("../models/Bin");
 
-// @desc    Register new bin
-// @route   POST /api/bins/register
-// @access  Admin
+// ➕ Register Bin
 exports.registerBin = async (req, res) => {
   try {
-    const { binId, location, type, capacity } = req.body;
+    const { binId, capacity, type, area, location } = req.body;
 
-    const bin = await Bin.create({
+    // ✅ Validation
+    if (!binId || !capacity || !area || !location?.coordinates) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields required"
+      });
+    }
+
+    // ✅ Check duplicate binId
+    const existingBin = await Bin.findOne({ binId });
+    if (existingBin) {
+      return res.status(400).json({
+        success: false,
+        message: "Bin already exists"
+      });
+    }
+
+    // ✅ Create bin
+    const newBin = await Bin.create({
       binId,
-      location,
+      capacity,
       type,
-      capacity
+      area,
+      location
     });
 
     res.status(201).json({
       success: true,
-      data: bin
+      data: newBin
     });
+
   } catch (error) {
+    console.error("Register Bin Error:", error);
+
     res.status(400).json({
       success: false,
       message: error.message
@@ -28,71 +46,37 @@ exports.registerBin = async (req, res) => {
   }
 };
 
-// @desc    Update bin status (IoT)
-// @route   POST /api/bins/update
-// @access  Public
-exports.updateBinStatus = async (req, res) => {
-  try {
-    const { binId, fillLevel, fireAlert, status } = req.body;
 
-    const bin = await Bin.findOne({ binId });
-    
-    if (!bin) {
-      return res.status(404).json({
-        success: false,
-        message: 'Bin not found'
-      });
-    }
-
-    bin.currentFillLevel = fillLevel || bin.currentFillLevel;
-    if (fireAlert !== undefined) bin.fireAlert = fireAlert;
-    if (status) bin.status = status;
-    bin.lastUpdated = Date.now();
-    
-    await bin.save();
-
-    res.json({
-      success: true,
-      data: bin
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-// @desc    Get all bins
-// @route   GET /api/bins/all
-// @access  Public
+// 📋 Get All Bins
 exports.getAllBins = async (req, res) => {
   try {
-    const bins = await Bin.find();
+    const bins = await Bin.find().sort({ createdAt: -1 });
+
     res.json({
       success: true,
-      count: bins.length,
       data: bins
     });
+
   } catch (error) {
-    res.status(400).json({
+    console.error("Get Bins Error:", error);
+
+    res.status(500).json({
       success: false,
-      message: error.message
+      message: "Server Error"
     });
   }
 };
 
-// @desc    Get bin by ID
-// @route   GET /api/bins/status/:id
-// @access  Public
+
+// 🔍 Get Single Bin
 exports.getBinById = async (req, res) => {
   try {
     const bin = await Bin.findById(req.params.id);
-    
+
     if (!bin) {
       return res.status(404).json({
         success: false,
-        message: 'Bin not found'
+        message: "Bin not found"
       });
     }
 
@@ -100,74 +84,93 @@ exports.getBinById = async (req, res) => {
       success: true,
       data: bin
     });
+
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      message: error.message
+      message: "Error fetching bin"
     });
   }
 };
 
-// @desc    Record collection
-// @route   POST /api/bins/collect
-// @access  Driver
-exports.recordCollection = async (req, res) => {
-  try {
-    const { binId, quantity, wasteType } = req.body;
 
-    const bin = await Bin.findById(binId);
+// 🔄 Update Bin Status (IoT)
+exports.updateBinStatus = async (req, res) => {
+  try {
+    const { binId, currentFillLevel, batteryLevel, fire } = req.body;
+
+    const bin = await Bin.findOne({ binId });
+
     if (!bin) {
       return res.status(404).json({
         success: false,
-        message: 'Bin not found'
+        message: "Bin not found"
       });
     }
 
-    const collectionLog = await CollectionLog.create({
-      bin: binId,
-      driver: req.user.id,
-      fillLevelBefore: bin.currentFillLevel,
-      fillLevelAfter: 0,
-      wasteType,
-      quantity
-    });
+    // ✅ Update fields
+    if (currentFillLevel !== undefined) {
+      bin.currentFillLevel = currentFillLevel;
 
-    bin.currentFillLevel = 0;
+      // Auto status update
+      if (currentFillLevel >= 80) bin.status = "Full";
+      else if (currentFillLevel >= 30) bin.status = "Partial";
+      else bin.status = "Empty";
+    }
+
+    if (batteryLevel !== undefined) {
+      bin.batteryLevel = batteryLevel;
+    }
+
+    if (fire !== undefined) {
+      bin.alerts.fire = fire;
+    }
+
     await bin.save();
 
     res.json({
       success: true,
-      data: collectionLog
+      data: bin
     });
+
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      message: error.message
+      message: "Update failed"
     });
   }
 };
 
-// @desc    Get bin statistics
-// @route   GET /api/bins/stats
-// @access  Admin
+
+// 📊 Stats
 exports.getBinStats = async (req, res) => {
   try {
-    const totalBins = await Bin.countDocuments();
-    const fullBins = await Bin.countDocuments({ status: 'Full' });
-    const fireAlerts = await Bin.countDocuments({ fireAlert: true });
+    const bins = await Bin.find();
+
+    const totalBins = bins.length;
+    const fullBins = bins.filter(b => b.status === "Full").length;
+    const activeBins = bins.filter(b => b.isActive).length;
+
+    const avgFill = totalBins
+      ? Math.round(
+          bins.reduce((sum, b) => sum + (b.currentFillLevel || 0), 0) / totalBins
+        )
+      : 0;
 
     res.json({
       success: true,
       data: {
         totalBins,
         fullBins,
-        fireAlerts
+        activeBins,
+        avgFill
       }
     });
+
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      message: error.message
+      message: "Stats error"
     });
   }
 };

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+/*const mongoose = require('mongoose');
 
 const recyclingCenterSchema = new mongoose.Schema({
   name: {
@@ -156,4 +156,38 @@ recyclingCenterSchema.methods.updateRating = function() {
   this.rating.count = this.reviews.length;
 };
 
-module.exports = mongoose.model('RecyclingCenter', recyclingCenterSchema);
+module.exports = mongoose.model('RecyclingCenter', recyclingCenterSchema);*/
+const mongoose = require('mongoose');
+
+const recyclingSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  capacity: {
+    type: Number,
+    required: true
+  },
+  latitude: {
+    type: Number,
+    required: true
+  },
+  longitude: {
+    type: Number,
+    required: true
+  },
+  address: {
+    type: String,
+    required: true
+  },
+  current_load: {
+    type: Number,
+    default: 0
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, { timestamps: true });
+
+module.exports = mongoose.model('RecyclingCenter', recyclingSchema);
