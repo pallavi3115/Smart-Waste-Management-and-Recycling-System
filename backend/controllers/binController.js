@@ -1,4 +1,5 @@
 const Bin = require("../models/Bin");
+const sendFireAlertEmail = require('../utils/email');
 
 // ➕ Register Bin
 exports.registerBin = async (req, res) => {
@@ -97,6 +98,8 @@ exports.getBinById = async (req, res) => {
 // 🔄 Update Bin Status (IoT)
 exports.updateBinStatus = async (req, res) => {
   try {
+    const io = req.app.get('io'); // 👈 VERY IMPORTANT
+
     const { binId, currentFillLevel, batteryLevel, fire } = req.body;
 
     const bin = await Bin.findOne({ binId });
@@ -108,25 +111,39 @@ exports.updateBinStatus = async (req, res) => {
       });
     }
 
-    // ✅ Update fields
+    // ✅ UPDATE FILL LEVEL
     if (currentFillLevel !== undefined) {
       bin.currentFillLevel = currentFillLevel;
 
-      // Auto status update
-      if (currentFillLevel >= 80) bin.status = "Full";
-      else if (currentFillLevel >= 30) bin.status = "Partial";
-      else bin.status = "Empty";
+      // 🔴 AUTO STATUS
+      if (currentFillLevel >= 80) {
+        bin.status = "Full";
+        console.log(`⚠️ Bin ${binId} is FULL`);
+      } else if (currentFillLevel >= 30) {
+        bin.status = "Partial";
+      } else {
+        bin.status = "Empty";
+      }
     }
 
+    // 🔋 BATTERY
     if (batteryLevel !== undefined) {
       bin.batteryLevel = batteryLevel;
     }
 
+    // 🔥 FIRE ALERT
     if (fire !== undefined) {
       bin.alerts.fire = fire;
+
+      if (fire === true) {
+        await sendFireAlertEmail(binId); // 👈 EMAIL TRIGGER
+      }
     }
 
     await bin.save();
+
+    // 🚀 REAL-TIME UPDATE (MAIN THING)
+    io.emit('bin:update', bin);
 
     res.json({
       success: true,
@@ -134,6 +151,8 @@ exports.updateBinStatus = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Update Error:", error);
+
     res.status(500).json({
       success: false,
       message: "Update failed"

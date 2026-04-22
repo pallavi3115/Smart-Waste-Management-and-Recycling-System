@@ -1,3 +1,4 @@
+// src/components/citizen/MyReports.js - Fixed version (No @mui/lab)
 import React, { useState, useEffect } from 'react';
 import {
   Container,
@@ -17,29 +18,22 @@ import {
   DialogContent,
   DialogActions,
   LinearProgress,
-  Alert,
   useTheme,
   alpha,
   IconButton,
   Tooltip,
-  Fade,
-  Grow,
   Skeleton,
   Pagination,
   Tabs,
   Tab,
   Menu,
-  MenuItem
+  MenuItem,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider
 } from '@mui/material';
-import {
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineDot,
-  TimelineConnector,
-  TimelineContent,
-  TimelineOppositeContent
-} from '@mui/lab';
 import {
   Pending as PendingIcon,
   CheckCircle as CheckCircleIcon,
@@ -53,7 +47,9 @@ import {
   FilterList as FilterIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  AccessTime as TimeIcon,
+  LocationOn as LocationIcon
 } from '@mui/icons-material';
 import { reportService } from '../../services/reportService';
 import { formatDistance, format } from 'date-fns';
@@ -116,17 +112,15 @@ const MyReports = () => {
   const filterReports = () => {
     let filtered = [...reports];
 
-    // Filter by status
     if (tabValue === 1) filtered = filtered.filter(r => r.status === 'PENDING');
     if (tabValue === 2) filtered = filtered.filter(r => r.status === 'IN_PROGRESS');
     if (tabValue === 3) filtered = filtered.filter(r => r.status === 'RESOLVED');
 
-    // Filter by search query
     if (searchQuery) {
       filtered = filtered.filter(r => 
-        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.category.toLowerCase().includes(searchQuery.toLowerCase())
+        (r.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.category || '').toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -408,58 +402,78 @@ const MyReports = () => {
                           <Grid item xs={12} md={5}>
                             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: alpha('#4F46E5', 0.02) }}>
                               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Timeline</Typography>
-                              <Timeline position="right" sx={{ p: 0, m: 0 }}>
-                                <TimelineItem>
-                                  <TimelineOppositeContent sx={{ m: 0, p: 0 }} />
-                                  <TimelineSeparator>
-                                    <TimelineDot color="primary">
-                                      <PendingIcon fontSize="small" />
-                                    </TimelineDot>
-                                    <TimelineConnector />
-                                  </TimelineSeparator>
-                                  <TimelineContent>
-                                    <Typography variant="caption" fontWeight={500}>Reported</Typography>
-                                    <Typography variant="caption" color="text.secondary" display="block">
-                                      {report.createdAt ? format(new Date(report.createdAt), 'dd MMM yyyy') : 'Recently'}
-                                    </Typography>
-                                  </TimelineContent>
-                                </TimelineItem>
+                              
+                              {/* Custom Timeline without @mui/lab */}
+                              <List dense disablePadding>
+                                {/* Reported Step */}
+                                <ListItem disablePadding sx={{ mb: 2 }}>
+                                  <ListItemIcon sx={{ minWidth: 40 }}>
+                                    <Avatar sx={{ width: 32, height: 32, bgcolor: alpha('#4F46E5', 0.1) }}>
+                                      <PendingIcon sx={{ fontSize: 18, color: '#4F46E5' }} />
+                                    </Avatar>
+                                  </ListItemIcon>
+                                  <ListItemText 
+                                    primary={<Typography variant="caption" fontWeight={500}>Reported</Typography>}
+                                    secondary={report.createdAt ? format(new Date(report.createdAt), 'dd MMM yyyy') : 'Recently'}
+                                    secondaryTypographyProps={{ variant: 'caption' }}
+                                  />
+                                </ListItem>
 
+                                <Divider sx={{ my: 1 }} />
+
+                                {/* Assigned Step */}
                                 {report.status !== 'PENDING' && (
-                                  <TimelineItem>
-                                    <TimelineOppositeContent sx={{ m: 0, p: 0 }} />
-                                    <TimelineSeparator>
-                                      <TimelineDot color="info">
-                                        <AssignmentIcon fontSize="small" />
-                                      </TimelineDot>
-                                      <TimelineConnector />
-                                    </TimelineSeparator>
-                                    <TimelineContent>
-                                      <Typography variant="caption" fontWeight={500}>Assigned</Typography>
-                                      <Typography variant="caption" color="text.secondary" display="block">
-                                        {report.assignedAt ? format(new Date(report.assignedAt), 'dd MMM yyyy') : 'N/A'}
-                                      </Typography>
-                                    </TimelineContent>
-                                  </TimelineItem>
+                                  <>
+                                    <ListItem disablePadding sx={{ mb: 2 }}>
+                                      <ListItemIcon sx={{ minWidth: 40 }}>
+                                        <Avatar sx={{ width: 32, height: 32, bgcolor: alpha('#3B82F6', 0.1) }}>
+                                          <AssignmentIcon sx={{ fontSize: 18, color: '#3B82F6' }} />
+                                        </Avatar>
+                                      </ListItemIcon>
+                                      <ListItemText 
+                                        primary={<Typography variant="caption" fontWeight={500}>Assigned</Typography>}
+                                        secondary={report.assignedAt ? format(new Date(report.assignedAt), 'dd MMM yyyy') : 'N/A'}
+                                        secondaryTypographyProps={{ variant: 'caption' }}
+                                      />
+                                    </ListItem>
+                                    <Divider sx={{ my: 1 }} />
+                                  </>
                                 )}
 
-                                {report.status === 'RESOLVED' && (
-                                  <TimelineItem>
-                                    <TimelineOppositeContent sx={{ m: 0, p: 0 }} />
-                                    <TimelineSeparator>
-                                      <TimelineDot color="success">
-                                        <CheckCircleIcon fontSize="small" />
-                                      </TimelineDot>
-                                    </TimelineSeparator>
-                                    <TimelineContent>
-                                      <Typography variant="caption" fontWeight={500}>Resolved</Typography>
-                                      <Typography variant="caption" color="text.secondary" display="block">
-                                        {report.resolvedAt ? format(new Date(report.resolvedAt), 'dd MMM yyyy') : 'N/A'}
-                                      </Typography>
-                                    </TimelineContent>
-                                  </TimelineItem>
+                                {/* In Progress Step */}
+                                {report.status === 'IN_PROGRESS' && (
+                                  <>
+                                    <ListItem disablePadding sx={{ mb: 2 }}>
+                                      <ListItemIcon sx={{ minWidth: 40 }}>
+                                        <Avatar sx={{ width: 32, height: 32, bgcolor: alpha('#4F46E5', 0.1) }}>
+                                          <ScheduleIcon sx={{ fontSize: 18, color: '#4F46E5' }} />
+                                        </Avatar>
+                                      </ListItemIcon>
+                                      <ListItemText 
+                                        primary={<Typography variant="caption" fontWeight={500}>In Progress</Typography>}
+                                        secondaryTypographyProps={{ variant: 'caption' }}
+                                      />
+                                    </ListItem>
+                                    <Divider sx={{ my: 1 }} />
+                                  </>
                                 )}
-                              </Timeline>
+
+                                {/* Resolved Step */}
+                                {report.status === 'RESOLVED' && (
+                                  <ListItem disablePadding sx={{ mb: 2 }}>
+                                    <ListItemIcon sx={{ minWidth: 40 }}>
+                                      <Avatar sx={{ width: 32, height: 32, bgcolor: alpha('#10B981', 0.1) }}>
+                                        <CheckCircleIcon sx={{ fontSize: 18, color: '#10B981' }} />
+                                      </Avatar>
+                                    </ListItemIcon>
+                                    <ListItemText 
+                                      primary={<Typography variant="caption" fontWeight={500}>Resolved</Typography>}
+                                      secondary={report.resolvedAt ? format(new Date(report.resolvedAt), 'dd MMM yyyy') : 'N/A'}
+                                      secondaryTypographyProps={{ variant: 'caption' }}
+                                    />
+                                  </ListItem>
+                                )}
+                              </List>
 
                               {report.status === 'RESOLVED' && !report.citizenFeedback && (
                                 <Button

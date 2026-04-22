@@ -104,7 +104,7 @@ app.use('/api/qr', qrRoutes);
 app.use('/api/map', mapRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
-
+app.use('/api/admin/recycling-centers', recyclingRoutes);
 app.use('/api/users/staff', staffRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/audit-logs', auditRoutes); // ✅ FINAL AUDIT ROUTE

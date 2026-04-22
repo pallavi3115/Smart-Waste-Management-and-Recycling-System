@@ -83,7 +83,6 @@ const Sidebar = ({ open, onClose }) => {
     // Driver ke liye
     const driverItems = [
       { text: 'My Routes', icon: <RouteIcon />, path: '/driver/routes' },
-      { text: 'Collection Proof', icon: <InventoryIcon />, path: '/driver/collection' },
       { text: 'Attendance', icon: <PeopleIcon />, path: '/driver/attendance' },
       { text: 'Earnings', icon: <AttachMoneyIcon />, path: '/driver/earnings' },
       { text: 'Performance', icon: <AssessmentIcon />, path: '/driver/performance' },

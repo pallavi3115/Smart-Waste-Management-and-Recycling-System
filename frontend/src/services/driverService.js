@@ -79,6 +79,17 @@ export const driverService = {
     return response.data;
   },
 
+  
+// Submit collection proof with photos
+async submitCollectionProof(routeId, stopId, formData) {
+  const response = await api.post(`/driver/routes/${routeId}/stop/${stopId}/proof`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+},
+
   // Get attendance
   async getAttendance(params) {
     const response = await api.get('/driver/attendance', { params });

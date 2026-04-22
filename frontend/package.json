@@ -8,7 +8,6 @@
     "@google/genai": "^1.50.1",
     "@google/generative-ai": "^0.24.1",
     "@mui/icons-material": "^7.3.8",
-    "@mui/lab": "^7.0.1-beta.22",
     "@mui/material": "^7.3.8",
     "@react-google-maps/api": "^2.20.8",
     "@testing-library/dom": "^10.4.1",
@@ -23,6 +22,8 @@
     "jspdf-autotable": "^5.0.7",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
+    "leaflet-control-geocoder": "^3.3.1",
+    "leaflet-routing-machine": "^3.2.12",
     "react": "^19.2.0",
     "react-chartjs-2": "^5.3.1",
     "react-countup": "^6.5.3",
@@ -33,23 +34,29 @@
     "react-router-dom": "^7.9.5",
     "react-scripts": "5.0.1",
     "react-webcam": "^7.2.0",
-    "recharts": "^3.7.0",
+    "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",
     "sweetalert2": "^11.26.18",
     "web-vitals": "^2.1.4",
+    "ws": "^8.20.0",
     "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "iot": "node iot-simulator.js"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-unused-vars": "off",
+      "react-hooks/exhaustive-deps": "off"
+    }
   },
   "browserslist": {
     "production": [

@@ -12,6 +12,14 @@ const driverSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  name: {
+    type: String,
+    required: true
+  },
+  phoneNumber: {
+    type: String,
+    required: true
+  },
   licenseNumber: {
     type: String,
     required: true
@@ -65,11 +73,6 @@ const driverSchema = new mongoose.Schema({
     lng: Number,
     lastUpdated: Date
   },
-  documents: {
-    license: { type: String },
-    idProof: { type: String },
-    addressProof: { type: String }
-  },
   isOnline: {
     type: Boolean,
     default: false
@@ -87,6 +90,27 @@ const driverSchema = new mongoose.Schema({
 
 // Index for faster queries
 driverSchema.index({ assignedZone: 1, status: 1 });
-driverSchema.index({ 'currentLocation.coordinates': '2dsphere' });
+driverSchema.index({ employeeId: 1 });
+
+// Virtual for full name
+driverSchema.virtual('fullName').get(function() {
+  return this.name;
+});
+
+// Method to add notification
+driverSchema.methods.addNotification = async function(title, message, type = 'info') {
+  this.notifications.unshift({
+    title,
+    message,
+    type,
+    createdAt: new Date()
+  });
+  
+  if (this.notifications.length > 50) {
+    this.notifications = this.notifications.slice(0, 50);
+  }
+  
+  await this.save();
+};
 
 module.exports = mongoose.model('Driver', driverSchema);
